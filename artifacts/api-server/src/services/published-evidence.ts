@@ -1,3 +1,5 @@
+import { gunzipSync } from 'node:zlib';
+
 import type { EvidenceStorage } from '@workspace/og-storage';
 
 /**
@@ -33,6 +35,23 @@ export class PublishedEvidenceError extends Error {
 }
 
 const MAX_BUNDLE_BYTES = 32 * 1024 * 1024;
+
+/** gzip's magic number. Two bytes is enough to know which shape arrived. */
+const GZIP_MAGIC = [0x1f, 0x8b];
+
+/**
+ * Bundles are published gzipped — a trials matrix is decimal text and compresses
+ * about threefold, which is three times less of the claimant's money spent on
+ * storage. Uncompressed bundles are still read so an older root, or one written
+ * by hand, does not stop resolving.
+ *
+ * The root addresses whatever bytes were published, compressed or not, so this
+ * happens after the root check rather than before it.
+ */
+function inflate(bytes: Uint8Array): Uint8Array {
+  if (bytes[0] !== GZIP_MAGIC[0] || bytes[1] !== GZIP_MAGIC[1]) return bytes;
+  return gunzipSync(bytes);
+}
 
 export async function fetchPublishedEvidence(
   storage: EvidenceStorage,
@@ -82,10 +101,10 @@ export async function fetchPublishedEvidence(
 
   let document: unknown;
   try {
-    document = JSON.parse(new TextDecoder().decode(bytes));
+    document = JSON.parse(new TextDecoder().decode(inflate(bytes)));
   } catch {
     throw new PublishedEvidenceError(
-      'the published bundle is not valid JSON',
+      'the published bundle is not valid JSON, compressed or otherwise',
       422,
       'evidenceRoot',
     );

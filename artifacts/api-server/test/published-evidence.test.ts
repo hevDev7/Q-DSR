@@ -1,3 +1,5 @@
+import { gzipSync } from 'node:zlib';
+
 import type { EvidenceStorage } from '@workspace/og-storage';
 import { describe, expect, it } from 'vitest';
 
@@ -37,6 +39,38 @@ function bundle(evidence: Record<string, unknown>): Uint8Array {
 const GOOD = { returnsCsv: 'timestamp,cfg_001\n2023-01-02,0.01\n', trialsCsv: 'timestamp,cfg_001\n2023-01-02,0.01\n' };
 
 describe('reading evidence the claimant published', () => {
+  it('reads a gzipped bundle, which is how the browser publishes them', async () => {
+    // A trials matrix is decimal text and compresses about threefold, so every
+    // real bundle arrives compressed — three times less of the claimant's money
+    // spent, and small enough that the indexer actually accepts it.
+    const compressed = new Uint8Array(gzipSync(bundle(GOOD)));
+    const result = await fetchPublishedEvidence(
+      storageServing(compressed, VALID_ROOT),
+      VALID_ROOT,
+    );
+
+    expect(result.trialsCsv).toBe(GOOD.trialsCsv);
+    expect(result.bytes).toBe(compressed.byteLength);
+  });
+
+  it('still reads an uncompressed bundle', async () => {
+    // An older root, or one written by hand, must not stop resolving.
+    const plain = bundle(GOOD);
+    const result = await fetchPublishedEvidence(storageServing(plain, VALID_ROOT), VALID_ROOT);
+
+    expect(result.trialsCsv).toBe(GOOD.trialsCsv);
+  });
+
+  it('checks the root before decompressing', async () => {
+    // Order matters: the root addresses the published bytes whatever shape they
+    // are in, so a mismatch is refused without ever handing them to gunzip.
+    const storage = storageServing(new Uint8Array(gzipSync(bundle(GOOD))), OTHER_ROOT);
+
+    await expect(fetchPublishedEvidence(storage, VALID_ROOT)).rejects.toThrow(
+      /does not name the bundle that was served/,
+    );
+  });
+
   it('accepts bytes that hash to the submitted root', async () => {
     const bytes = bundle(GOOD);
     const result = await fetchPublishedEvidence(storageServing(bytes, VALID_ROOT), VALID_ROOT);

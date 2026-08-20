@@ -16,6 +16,8 @@
  *   pnpm --filter @workspace/scripts exec tsx src/seed-demo.ts
  */
 
+import { gzipSync } from 'node:zlib';
+
 import { createEvidenceStorage, type EvidenceStorage } from '@workspace/og-storage';
 
 const API = process.env.QDSR_API_URL ?? 'http://127.0.0.1:8080/api';
@@ -49,15 +51,23 @@ async function publishEvidence(
   sample: Sample,
   periodsPerYear = 252,
 ): Promise<string> {
-  const bytes = new TextEncoder().encode(
-    JSON.stringify({
-      agent: { name: agentName, periodsPerYear },
-      evidence: {
-        returnsCsv: sample.returnsCsv,
-        trialsCsv: sample.trialsCsv,
-        selectedColumn: sample.selectedColumn,
-      },
-    }),
+  // Gzipped, like the browser publishes. A trials matrix is decimal text and
+  // compresses about threefold — which is both three times less to pay for and
+  // the difference between an upload the testnet indexer accepts and one that
+  // stalls.
+  const bytes = new Uint8Array(
+    gzipSync(
+      new TextEncoder().encode(
+        JSON.stringify({
+          agent: { name: agentName, periodsPerYear },
+          evidence: {
+            returnsCsv: sample.returnsCsv,
+            trialsCsv: sample.trialsCsv,
+            selectedColumn: sample.selectedColumn,
+          },
+        }),
+      ),
+    ),
   );
   const { rootHash } = await (await publisher()).upload(bytes, 'evidence.json');
   return rootHash;

@@ -186,8 +186,11 @@ The trust model was replaced rather than faked:
 | Detects a dishonest verdict | Yes | Yes — by anyone, publicly |
 
 The evidence bundle — returns, the full trials matrix, and the parameters the
-claim is about — is published to 0G Storage under a merkle root, **by the wallet
-making the claim**. The root, the metrics and a SHA-256 digest of the canonical
+claim is about — is gzipped and published to 0G Storage under a merkle root, **by
+the wallet making the claim**. A trials matrix is decimal text and compresses
+about threefold: a 1512 × 60 bundle goes from 1,097,517 bytes to 384,359, which
+is three times less of the claimant's money and the difference between an upload
+the testnet indexer accepts and one that stalls past four minutes. The root, the metrics and a SHA-256 digest of the canonical
 result go on chain. Anyone downloads the bundle `withProof`, re-runs the pinned
 engine with the recorded seed, and must reproduce the digest byte for byte.
 
@@ -399,7 +402,7 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (263 tests)
+- Statistics engine, contracts, API and UI: complete and tested (266 tests)
 - Contracts audited before mainnet; four findings fixed, each with a regression
   test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
 - Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks

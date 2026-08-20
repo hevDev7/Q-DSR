@@ -74,7 +74,7 @@ export async function publishEvidence(options: PublishEvidenceOptions): Promise<
   const report = (progress: UploadProgress): void => options.onProgress?.(progress);
 
   report({ phase: 'packing' });
-  const bytes = serialiseEvidenceBundle(options.document);
+  const bytes = await serialiseEvidenceBundle(options.document);
   const expectedRoot = await computeMerkleRootInBrowser(bytes);
 
   report({
