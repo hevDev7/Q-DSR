@@ -1,16 +1,34 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+export type Database = NodePgDatabase<typeof schema>;
+
+export interface DatabaseHandle {
+  db: Database;
+  pool: pg.Pool;
+  close(): Promise<void>;
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+/**
+ * Opens a connection pool.
+ *
+ * Exported as a factory rather than a module-level singleton so that importing
+ * this package does not require a database to exist. The API server runs against
+ * an on-disk store when DATABASE_URL is absent, and a throw at import time would
+ * make that impossible.
+ */
+export function createDb(connectionString: string): DatabaseHandle {
+  const pool = new Pool({ connectionString });
+  const db = drizzle(pool, { schema });
+  return {
+    db,
+    pool,
+    close: () => pool.end(),
+  };
+}
 
+export { schema };
 export * from "./schema";

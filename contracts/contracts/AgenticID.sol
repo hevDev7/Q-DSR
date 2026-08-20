@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+import {IOracle, IQDSRRegistry} from "./IQDSROracle.sol";
+
+/**
+ * @title AgenticID
+ * @notice ERC-7857 Agentic ID whose minting is gated by statistical certification.
+ *
+ * The ERC-7857 reference implementation exposes an `IOracle` hook and an
+ * owner-restricted mint. This contract keeps the standard's surface — `transfer`,
+ * `clone`, `authorizeUsage` with sealed keys and oracle proofs — and replaces the
+ * owner check on mint with a Q-DSR certification check.
+ *
+ * The consequence is the whole point of the protocol: an agent whose backtest
+ * cannot survive PBO and DSR testing cannot acquire an on-chain identity at all.
+ * It does not get a warning label. It does not get minted.
+ */
+contract AgenticID is ERC721, ReentrancyGuard {
+    // ---------------------------------------------------------------------
+    // Types
+    // ---------------------------------------------------------------------
+
+    struct AgentRecord {
+        /// @dev Stable agent identity — the key the registry holds verdicts under.
+        bytes32 agentId;
+        /// @dev Hash of the encrypted metadata this token points at.
+        bytes32 metadataHash;
+        /// @dev Verdict index in the registry at the moment of minting.
+        uint256 verdictIndex;
+        uint64 mintedAt;
+    }
+
+    // ---------------------------------------------------------------------
+    // Storage
+    // ---------------------------------------------------------------------
+
+    IQDSRRegistry public immutable registry;
+    IOracle public immutable oracle;
+
+    address public owner;
+    uint256 private _nextTokenId = 1;
+
+    mapping(uint256 => AgentRecord) private _records;
+    mapping(uint256 => string) private _encryptedURIs;
+    /// @dev One Agentic ID per certified agent — identity is not fungible.
+    mapping(bytes32 => uint256) public tokenIdOfAgent;
+    /// @dev tokenId => executor => permissions blob.
+    mapping(uint256 => mapping(address => bytes)) private _authorisations;
+
+    // ---------------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------------
+
+    event AgenticIdMinted(
+        uint256 indexed tokenId,
+        bytes32 indexed agentId,
+        address indexed to,
+        bytes32 metadataHash,
+        string metadataURI
+    );
+    event MintBlocked(bytes32 indexed agentId, address indexed caller, string reason);
+    event SealedTransfer(uint256 indexed tokenId, address indexed from, address indexed to);
+    event Cloned(uint256 indexed sourceTokenId, uint256 indexed newTokenId, address indexed to);
+    event UsageAuthorised(uint256 indexed tokenId, address indexed executor);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // ---------------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------------
+
+    error NotOwner();
+    error ZeroAddress();
+    error AgentNotCertified(bytes32 agentId);
+    error AgentAlreadyMinted(bytes32 agentId, uint256 tokenId);
+    error EmptyMetadata();
+    error UnknownToken(uint256 tokenId);
+    error NotTokenOwner(uint256 tokenId, address caller);
+    error InvalidProof();
+    error EmptySealedKey();
+
+    // ---------------------------------------------------------------------
+    // Modifiers
+    // ---------------------------------------------------------------------
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    /// @dev The ERC-7857 oracle gate, applied to sealed-key operations.
+    modifier validProof(bytes calldata proof) {
+        if (address(oracle) == address(0)) revert InvalidProof();
+        if (!oracle.verifyProof(proof)) revert InvalidProof();
+        _;
+    }
+
+    constructor(address registryAddress)
+        ERC721("Q-DSR Agentic ID", "QAID")
+    {
+        if (registryAddress == address(0)) revert ZeroAddress();
+        registry = IQDSRRegistry(registryAddress);
+        oracle = IOracle(registryAddress);
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+
+    // ---------------------------------------------------------------------
+    // Minting — the certification gate
+    // ---------------------------------------------------------------------
+
+    /**
+     * @notice Mints an Agentic ID for an agent that has passed Q-DSR certification.
+     * @dev Deliberately permissionless: anyone may mint for a certified agent,
+     *      because the gate that matters is the statistical one, not an allowlist.
+     */
+    function mint(
+        address to,
+        bytes32 agentId,
+        string calldata metadataURI,
+        bytes32 metadataHash
+    ) external nonReentrant returns (uint256 tokenId) {
+        if (to == address(0)) revert ZeroAddress();
+        if (metadataHash == bytes32(0) || bytes(metadataURI).length == 0) revert EmptyMetadata();
+
+        uint256 existing = tokenIdOfAgent[agentId];
+        if (existing != 0) revert AgentAlreadyMinted(agentId, existing);
+
+        if (!registry.isCertified(agentId)) {
+            // Emitted before reverting so an indexer can surface rejected attempts —
+            // the blocked mints are as much a part of the record as the successful ones.
+            emit MintBlocked(agentId, msg.sender, "QDSR: agent not certified");
+            revert AgentNotCertified(agentId);
+        }
+
+        tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+
+        _records[tokenId] = AgentRecord({
+            agentId: agentId,
+            metadataHash: metadataHash,
+            verdictIndex: 0,
+            mintedAt: uint64(block.timestamp)
+        });
+        _encryptedURIs[tokenId] = metadataURI;
+        tokenIdOfAgent[agentId] = tokenId;
+
+        emit AgenticIdMinted(tokenId, agentId, to, metadataHash, metadataURI);
+    }
+
+    // ---------------------------------------------------------------------
+    // ERC-7857 surface
+    // ---------------------------------------------------------------------
+
+    /**
+     * @notice Transfers an Agentic ID together with a re-sealed metadata key.
+     * @param sealedKey Metadata key re-encrypted for the recipient.
+     * @param proof Oracle proof — an abi-encoded agentId under the Q-DSR registry.
+     */
+    function transfer(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes calldata sealedKey,
+        bytes calldata proof
+    ) external validProof(proof) nonReentrant {
+        if (to == address(0)) revert ZeroAddress();
+        if (sealedKey.length == 0) revert EmptySealedKey();
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        if (_ownerOf(tokenId) != from) revert NotTokenOwner(tokenId, from);
+        if (msg.sender != from && !isApprovedForAll(from, msg.sender)) {
+            revert NotTokenOwner(tokenId, msg.sender);
+        }
+
+        _transfer(from, to, tokenId);
+        emit SealedTransfer(tokenId, from, to);
+    }
+
+    /**
+     * @notice Clones an agent into a new token for another owner.
+     * @dev The clone inherits the source agent's certification — it is the same
+     *      intelligence, so it carries the same verdict rather than an unverified one.
+     */
+    function clone(
+        address to,
+        uint256 tokenId,
+        bytes calldata sealedKey,
+        bytes calldata proof
+    ) external validProof(proof) nonReentrant returns (uint256 newTokenId) {
+        if (to == address(0)) revert ZeroAddress();
+        if (sealedKey.length == 0) revert EmptySealedKey();
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId, msg.sender);
+
+        AgentRecord memory source = _records[tokenId];
+
+        newTokenId = _nextTokenId++;
+        _safeMint(to, newTokenId);
+        _records[newTokenId] = AgentRecord({
+            agentId: source.agentId,
+            metadataHash: source.metadataHash,
+            verdictIndex: source.verdictIndex,
+            mintedAt: uint64(block.timestamp)
+        });
+        _encryptedURIs[newTokenId] = _encryptedURIs[tokenId];
+
+        emit Cloned(tokenId, newTokenId, to);
+    }
+
+    /// @notice Grants an executor permission to run the agent without transferring it.
+    function authorizeUsage(
+        uint256 tokenId,
+        address executor,
+        bytes calldata permissions
+    ) external {
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId, msg.sender);
+        if (executor == address(0)) revert ZeroAddress();
+
+        _authorisations[tokenId][executor] = permissions;
+        emit UsageAuthorised(tokenId, executor);
+    }
+
+    // ---------------------------------------------------------------------
+    // Views
+    // ---------------------------------------------------------------------
+
+    function recordOf(uint256 tokenId) external view returns (AgentRecord memory) {
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        return _records[tokenId];
+    }
+
+    function encryptedURI(uint256 tokenId) external view returns (string memory) {
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        return _encryptedURIs[tokenId];
+    }
+
+    function authorisationOf(uint256 tokenId, address executor) external view returns (bytes memory) {
+        return _authorisations[tokenId][executor];
+    }
+
+    /// @notice Whether this token's agent still holds a passing verdict.
+    function isStillCertified(uint256 tokenId) external view returns (bool) {
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        return registry.isCertified(_records[tokenId].agentId);
+    }
+
+    function totalMinted() external view returns (uint256) {
+        return _nextTokenId - 1;
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddress();
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+}

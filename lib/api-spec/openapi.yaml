@@ -3,13 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: |
+    Q-DSR Protocol API.
+
+    Statistical certification for AI trading agents. An agent submits an evidence
+    bundle, the engine computes the Probability of Backtest Overfitting and the
+    Deflated Sharpe Ratio, and the verdict is anchored to 0G Storage and 0G Chain.
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agents
+    description: Agent registry
+  - name: runs
+    description: Verification runs
+  - name: evidence
+    description: Evidence bundles
+  - name: audit
+    description: Audit trail
+  - name: chain
+    description: On-chain configuration and anchoring
+
 paths:
   /healthz:
     get:
@@ -24,7 +40,310 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List agents
+      description: Every agent in the registry with its most recent verdict.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AgentStatus"
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Register an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /agents/{agentId}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get an agent
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /agents/{agentId}/verify:
+    post:
+      operationId: startVerification
+      tags: [runs]
+      summary: Submit an evidence bundle and start a verification run
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationRequest"
+      responses:
+        "202":
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /agents/{agentId}/mint-intent:
+    get:
+      operationId: getMintIntent
+      tags: [chain]
+      summary: What a wallet needs in order to mint this agent's Agentic ID
+      description: |
+        Minting is performed by the agent owner's own wallet, not by this server,
+        so the server's job is to hand over the exact arguments and to say plainly
+        whether the attempt would succeed.
+
+        `ready` is false until the agent holds a passing verdict AND that verdict
+        has been anchored on chain — the contract reads the registry, so a mint
+        before anchoring reverts.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Mint intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MintIntent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs:
+    get:
+      operationId: listRuns
+      tags: [runs]
+      summary: List verification runs
+      parameters:
+        - name: agentId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Run"
+
+  /runs/{runId}:
+    get:
+      operationId: getRun
+      tags: [runs]
+      summary: Get a verification run
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{runId}/anchor:
+    post:
+      operationId: anchorRun
+      tags: [chain]
+      summary: Publish evidence to 0G Storage and the verdict to 0G Chain
+      description: |
+        Decoupled from verification on purpose. A failed upload or a reverted
+        transaction must never destroy a completed run, so anchoring is a separate,
+        retryable step.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Anchored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Anchor"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Run is not in a state that can be anchored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /runs/{runId}/replicate:
+    post:
+      operationId: replicateRun
+      tags: [runs]
+      summary: Re-run the engine from stored evidence and compare digests
+      description: |
+        The trustless audit path. Downloads the evidence from 0G Storage, re-runs the
+        pinned engine with the recorded seed, and reports whether the result digest
+        matches the one anchored on chain.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Replication report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplicationReport"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /evidence/sample:
+    post:
+      operationId: generateSampleEvidence
+      tags: [evidence]
+      summary: Generate a synthetic evidence bundle
+      description: |
+        Produces a reproducible bundle for demonstration. `overfit` selects the best
+        of N pure-noise configurations — the case the protocol exists to catch.
+        `genuine` contains one configuration with a persistent edge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleEvidenceRequest"
+      responses:
+        "200":
+          description: Sample bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SampleEvidence"
+
+  /audit:
+    get:
+      operationId: listAuditEvents
+      tags: [audit]
+      summary: List audit events
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+
+  /chain/config:
+    get:
+      operationId: getChainConfig
+      tags: [chain]
+      summary: Chain and contract configuration
+      responses:
+        "200":
+          description: Configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainConfig"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [agents]
+      summary: Fleet-level statistics
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetStats"
+
 components:
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ValidationError:
+      description: The submission cannot support a meaningful verdict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +353,519 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        field:
+          type: string
+      required:
+        - error
+
+    AgentStatus:
+      type: string
+      enum: [unverified, verifying, certified, insignificant, failed]
+
+    Verdict:
+      type: string
+      enum: [certified, insignificant]
+
+    RunStatus:
+      type: string
+      enum: [queued, running, completed, failed]
+
+    AnchorStatus:
+      type: string
+      enum: [none, pending, anchored, failed]
+
+    CreateAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        family:
+          type: string
+        owner:
+          type: string
+        periodsPerYear:
+          type: number
+      required: [name, family, owner]
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+          description: keccak256(owner, name) — the on-chain identity key
+        name:
+          type: string
+        family:
+          type: string
+        owner:
+          type: string
+        periodsPerYear:
+          type: number
+        status:
+          $ref: "#/components/schemas/AgentStatus"
+        accent:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        latestRunId:
+          type: string
+        metrics:
+          $ref: "#/components/schemas/AgentMetrics"
+      required:
+        - id
+        - agentId
+        - name
+        - family
+        - owner
+        - periodsPerYear
+        - status
+        - accent
+        - createdAt
+        - updatedAt
+
+    AgentMetrics:
+      type: object
+      description: Headline numbers from the agent's most recent completed run.
+      properties:
+        dsr:
+          type: number
+        pbo:
+          type: number
+        sharpe:
+          type: number
+        sharpeAnnualised:
+          type: number
+        observations:
+          type: number
+        trials:
+          type: number
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        anchorStatus:
+          $ref: "#/components/schemas/AnchorStatus"
+      required:
+        - dsr
+        - pbo
+        - sharpe
+        - sharpeAnnualised
+        - observations
+        - trials
+        - verdict
+        - anchorStatus
+
+    AgentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Agent"
+        - type: object
+          properties:
+            runs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Run"
+          required: [runs]
+
+    VerificationRequest:
+      type: object
+      properties:
+        returnsCsv:
+          type: string
+          description: "CSV with a timestamp column and a return column."
+        trialsCsv:
+          type: string
+          description: |
+            CSV matrix, one column per configuration explored during optimisation.
+            Required — PBO is meaningless without the full search space.
+        selectedColumn:
+          type: string
+          description: Column name in trialsCsv corresponding to the submitted series.
+        seed:
+          type: number
+        bootstrapIterations:
+          type: number
+        cscvSplits:
+          type: number
+      required: [returnsCsv, trialsCsv]
+
+    Run:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+        agentName:
+          type: string
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        progress:
+          type: number
+          description: 0-100
+        step:
+          type: string
+        error:
+          type: string
+        seed:
+          type: number
+        createdAt:
+          type: string
+        startedAt:
+          type: string
+        finishedAt:
+          type: string
+        result:
+          $ref: "#/components/schemas/VerificationResult"
+        anchor:
+          $ref: "#/components/schemas/Anchor"
+      required:
+        - id
+        - agentId
+        - agentName
+        - status
+        - progress
+        - step
+        - seed
+        - createdAt
+
+    GateOutcome:
+      type: object
+      properties:
+        gate:
+          type: string
+        passed:
+          type: boolean
+        observed:
+          type: number
+        required:
+          type: number
+        comparison:
+          type: string
+          enum: [gte, lte]
+      required: [gate, passed, observed, required, comparison]
+
+    BootstrapSummary:
+      type: object
+      properties:
+        iterations:
+          type: number
+        blockSize:
+          type: number
+        meanSharpe:
+          type: number
+        stdSharpe:
+          type: number
+        ci95Low:
+          type: number
+        ci95High:
+          type: number
+        probabilityPositive:
+          type: number
+      required:
+        - iterations
+        - blockSize
+        - meanSharpe
+        - stdSharpe
+        - ci95Low
+        - ci95High
+        - probabilityPositive
+
+    PhaseTiming:
+      type: object
+      description: Measured duration of one engine stage.
+      properties:
+        phase:
+          type: string
+          enum: [validating, fingerprinting, cscv, bootstrap, sealing]
+        label:
+          type: string
+        elapsedMs:
+          type: number
+      required: [phase, label, elapsedMs]
+
+    CscvSummary:
+      type: object
+      properties:
+        splits:
+          type: number
+        combinations:
+          type: number
+        droppedRows:
+          type: number
+      required: [splits, combinations, droppedRows]
+
+    VerificationResult:
+      type: object
+      properties:
+        engineVersion:
+          type: string
+        seed:
+          type: number
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        gates:
+          type: array
+          items:
+            $ref: "#/components/schemas/GateOutcome"
+        observations:
+          type: number
+        trials:
+          type: number
+        sharpe:
+          type: number
+        sharpeAnnualised:
+          type: number
+        skewness:
+          type: number
+        kurtosis:
+          type: number
+        expectedMaxSharpe:
+          type: number
+        dsr:
+          type: number
+        pbo:
+          type: number
+        minimumTrackRecordLength:
+          type: number
+          description: Infinity is serialised as null.
+          nullable: true
+        bootstrap:
+          $ref: "#/components/schemas/BootstrapSummary"
+        cscv:
+          $ref: "#/components/schemas/CscvSummary"
+        timings:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhaseTiming"
+        elapsedMs:
+          type: number
+        digest:
+          type: string
+      required:
+        - engineVersion
+        - seed
+        - verdict
+        - gates
+        - observations
+        - trials
+        - sharpe
+        - sharpeAnnualised
+        - skewness
+        - kurtosis
+        - expectedMaxSharpe
+        - dsr
+        - pbo
+        - bootstrap
+        - cscv
+        - timings
+        - elapsedMs
+        - digest
+
+    Anchor:
+      type: object
+      properties:
+        runId:
+          type: string
+        status:
+          $ref: "#/components/schemas/AnchorStatus"
+        storageMode:
+          type: string
+          enum: [live, local]
+        evidenceRoot:
+          type: string
+        storageTxHash:
+          type: string
+        chainId:
+          type: number
+        registryAddress:
+          type: string
+        chainTxHash:
+          type: string
+        blockNumber:
+          type: number
+        explorerUrl:
+          type: string
+        error:
+          type: string
+        anchoredAt:
+          type: string
+      required: [runId, status]
+
+    MintIntent:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        blockedReason:
+          type: string
+          description: Why a mint would fail right now. Absent when ready.
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        agentIdHash:
+          type: string
+          description: bytes32 — the identity key the registry holds verdicts under
+        metadataURI:
+          type: string
+          description: 0g://storage/<evidenceRoot>
+        metadataHash:
+          type: string
+          description: bytes32 — the result digest
+        evidenceRoot:
+          type: string
+        chainId:
+          type: number
+        rpcUrl:
+          type: string
+          description: Public RPC, so a browser can query the contract without a wallet.
+        networkName:
+          type: string
+        agenticIdAddress:
+          type: string
+        registryAddress:
+          type: string
+        explorerBaseUrl:
+          type: string
+      required: [ready, agentIdHash, networkName]
+
+    ReplicationReport:
+      type: object
+      properties:
+        runId:
+          type: string
+        reproduced:
+          type: boolean
+        anchoredDigest:
+          type: string
+        recomputedDigest:
+          type: string
+        engineVersion:
+          type: string
+        elapsedMs:
+          type: number
+        note:
+          type: string
+      required: [runId, reproduced, anchoredDigest, recomputedDigest, engineVersion, elapsedMs]
+
+    SampleEvidenceRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [overfit, genuine]
+        observations:
+          type: number
+        trials:
+          type: number
+        seed:
+          type: number
+      required: [kind]
+
+    SampleEvidence:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [overfit, genuine]
+        returnsCsv:
+          type: string
+        trialsCsv:
+          type: string
+        selectedColumn:
+          type: string
+        observations:
+          type: number
+        trials:
+          type: number
+        seed:
+          type: number
+      required:
+        - kind
+        - returnsCsv
+        - trialsCsv
+        - selectedColumn
+        - observations
+        - trials
+        - seed
+
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        actor:
+          type: string
+        action:
+          type: string
+        detail:
+          type: string
+        tone:
+          type: string
+          enum: [good, bad, warn, cyan, neutral]
+        createdAt:
+          type: string
+      required: [id, actor, action, detail, tone, createdAt]
+
+    ChainConfig:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        chainId:
+          type: number
+        rpcUrl:
+          type: string
+        networkName:
+          type: string
+        explorerBaseUrl:
+          type: string
+        registryAddress:
+          type: string
+        agenticIdAddress:
+          type: string
+        attestorAddress:
+          type: string
+        storageMode:
+          type: string
+          enum: [live, local]
+        engineVersion:
+          type: string
+      required: [configured, networkName, storageMode, engineVersion]
+
+    FleetStats:
+      type: object
+      properties:
+        total:
+          type: number
+        certified:
+          type: number
+        insignificant:
+          type: number
+        unverified:
+          type: number
+        verifying:
+          type: number
+        medianDsr:
+          type: number
+          nullable: true
+        medianPbo:
+          type: number
+          nullable: true
+        anchored:
+          type: number
+        totalRuns:
+          type: number
+      required:
+        - total
+        - certified
+        - insignificant
+        - unverified
+        - verifying
+        - anchored
+        - totalRuns
