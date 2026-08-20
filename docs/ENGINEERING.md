@@ -90,4 +90,6 @@ at the gate, and the dashboard can prove it with a read-only call.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- [`README.md`](../README.md) — what the protocol is and why
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — the staged deployment runbook
+- [`superpowers/specs/`](superpowers/specs/) — the original design spec

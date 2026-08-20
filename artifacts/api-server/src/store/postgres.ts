@@ -23,8 +23,7 @@ const date = (value: string | undefined): Date | null => (value ? new Date(value
 /**
  * Postgres persistence via Drizzle.
  *
- * Used automatically when DATABASE_URL is present — which is the case on a Replit
- * deployment. The mapping functions below are deliberately explicit rather than
+ * Used automatically when DATABASE_URL is present. The mapping functions below are deliberately explicit rather than
  * spread-based: the database row and the domain record are allowed to drift, and
  * writing the translation out is what makes that drift visible.
  */
