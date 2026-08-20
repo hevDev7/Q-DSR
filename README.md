@@ -67,9 +67,10 @@ Open http://localhost:22107, click **Run verification**, then **Load overfit
 sample**. The full path — submit, verify, seal, replicate — runs with nothing
 configured.
 
-To watch it fail honestly, click **Anchor evidence**: the 0G Storage root is
-computed and recorded, and the chain step reports that it has no credentials
-rather than pretending to publish.
+Publishing the bundle asks the connected wallet for a storage payment before the
+engine runs — that signature prompt is the claimant funding their own evidence,
+not a mint. Then click **Anchor evidence**: the chain step reports that it has no
+credentials rather than pretending to publish.
 
 ### Run the tests
 
@@ -102,10 +103,13 @@ can be checked by anyone.
 
 ```mermaid
 flowchart TD
-    A["returns.csv + trials.csv<br/>the full search space"] --> B{Validate}
+    A["returns.csv + trials.csv<br/>the full search space"] --> P["0G Storage<br/>published and paid for<br/>by the claimant's wallet<br/>→ merkle root"]
+    P --> Q{"attestor downloads<br/>and re-derives the root"}
+    Q -->|roots disagree| R0["422 — the root does not name<br/>the bundle that was served"]
+    Q -->|roots match| B{Validate}
     B -->|missing trials matrix| R1["422 — PBO is undefined<br/>without the search space"]
     B -->|series not in trials| R2["422 — selection bias<br/>would be invisible"]
-    B -->|ok| C["qdsr-core engine<br/>deterministic, seeded"]
+    B -->|ok| C["qdsr-core engine<br/>attestor-pinned seed,<br/>splits and version"]
 
     C --> D["CSCV<br/>12,870 symmetric splits<br/>→ PBO"]
     C --> E["Deflated Sharpe Ratio<br/>Euler–Mascheroni correction<br/>→ DSR"]
@@ -118,14 +122,14 @@ flowchart TD
     G -->|no| H["Statistically insignificant<br/>recorded permanently"]
     G -->|yes| I[Certified]
 
-    H --> J["0G Storage<br/>evidence + artifacts<br/>→ merkle root"]
-    I --> J
-    J --> K["0G Chain — QDSRRegistry<br/>root + digest + metrics"]
+    H --> K["0G Chain — QDSRRegistry<br/>root + digest + metrics"]
+    I --> K
     K --> L{"AgenticID.mint()"}
     L -->|isCertified false| M["revert AgentNotCertified"]
     L -->|isCertified true| N["ERC-7857 Agentic ID<br/>minted to the developer's wallet"]
 
-    K -.->|anyone| O["Download withProof<br/>re-run pinned engine<br/>compare digests"]
+    P -.->|anyone| O["Download withProof<br/>re-run pinned engine<br/>compare digests"]
+    K -.-> O
 ```
 
 ### The mathematics
@@ -181,13 +185,40 @@ The trust model was replaced rather than faked:
 | What a verifier does | Check a signature | Re-run the engine, compare digests |
 | Detects a dishonest verdict | Yes | Yes — by anyone, publicly |
 
-Evidence, bootstrap distribution and CSCV logits are published to 0G Storage
-under a merkle root. The root, the metrics and a SHA-256 digest of the canonical
+The evidence bundle — returns, the full trials matrix, and the parameters the
+claim is about — is published to 0G Storage under a merkle root, **by the wallet
+making the claim**. The root, the metrics and a SHA-256 digest of the canonical
 result go on chain. Anyone downloads the bundle `withProof`, re-runs the pinned
 engine with the recorded seed, and must reproduce the digest byte for byte.
 
+The engine's own output is deliberately not published. Bootstrap resamples and
+CSCV logits are deterministic given those bytes plus the pinned seed and version,
+so storing them would pay to keep something any verifier regenerates on the way
+to checking the answer. `resultDigest` on chain is what pins the result.
+
 That is scientific replication rather than hardware attestation. It is weaker as
 a guarantee and stronger as a practice: disagreeing with us is cheap and public.
+
+### Who pays, and who measures
+
+Two different wallets, and the split is the point.
+
+| Step | Signed by | Why that party |
+|---|---|---|
+| Publish the evidence bundle | **the claimant** | the party asserting a track record funds the record |
+| `submitVerdict` | the attestor | the party being measured must not certify itself |
+| `mint` | **the claimant** | the token is theirs, and their gas |
+
+The attestor never accepts a bundle handed to it. It downloads the bytes at the
+submitted root, re-derives the root, and refuses if they disagree — so a
+submission cannot name one bundle on chain while being measured against another.
+It also pins the measurement parameters itself: `cscvSplits` decides how PBO is
+computed, and a claimant choosing it would be choosing how their own claim is
+tested.
+
+Cost following the claim closes a second thing. Evidence storage funded by the
+operator is a free DoS surface — a megabyte per junk submission, paid by whoever
+is running the service. Now it is paid by whoever submits.
 
 **TEE execution is roadmap, not claim.** It is not implemented and is not
 described as implemented anywhere in this repository.
@@ -325,7 +356,7 @@ to start anchoring.
 
 ```
 lib/qdsr-core/       the statistics engine — pure, deterministic, dependency-free
-lib/og-storage/      0G Storage client + local content-addressed fallback
+lib/og-storage/      0G Storage client (node + browser) + content-addressed fallback
 lib/og-chain/        0G Chain client, ABIs, network parameters
 lib/db/              Drizzle schema
 lib/api-spec/        OpenAPI spec — source of truth for the client and Zod schemas
@@ -343,7 +374,8 @@ reviewer can verify without running any of the rest.
 | Missing | Behaviour |
 |---|---|
 | `DATABASE_URL` | On-disk JSON store. Same `Store` interface, same contract tests. |
-| 0G Storage credentials | Evidence sealed under its **real** 0G merkle root, kept locally. `storageMode: "local"` is surfaced in the API and the UI. |
+| A funded wallet, in the browser | **No fallback, by design.** Publishing is refused before the signature prompt, with the balance in the message. An operator-funded path would make "the claimant funds their own evidence" true only when convenient. |
+| 0G Storage credentials, server side | Only affects reading back and the local seeder, which seals under its **real** 0G merkle root. `storageMode` is surfaced in the API and the UI. |
 | 0G Chain credentials | Anchoring fails loudly with the names of the missing variables. The verdict and the evidence root survive; anchoring is retryable. |
 
 Nothing silently pretends to have succeeded.
@@ -367,16 +399,19 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (247 tests)
+- Statistics engine, contracts, API and UI: complete and tested (263 tests)
 - Contracts audited before mainnet; four findings fixed, each with a regression
   test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
 - Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks
   pass, including a byte-for-byte match between the deployed runtime code and
   what this checkout compiles
+- Evidence is published and funded by the wallet making the claim; the attestor
+  re-derives the root from the published bytes before measuring anything
 - Wallet-signed minting verified end to end by a human: Agentic ID
-  [token #2](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2) on the pre-audit deployment
+  [token #3](https://chainscan-galileo.0g.ai/nft/0x8559ec6DDe62450508846DB825B31f9722707687/3)
   is owned by the wallet that signed for it, not by this server, and carries its
   own DSR and PBO in on-chain metadata
-- 0G Storage: integrated, with a local fallback that produces identical roots
+- 0G Storage: integrated from both Node and the browser, verified to compute
+  identical merkle roots across the two builds
 - 0G Chain: integrated; contracts compiled and tested, mainnet deployment pending
 - 0G Compute TEE: **not implemented** — roadmap, for the reasons above
