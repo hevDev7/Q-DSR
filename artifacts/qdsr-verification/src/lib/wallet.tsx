@@ -1,8 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { BrowserProvider, type Eip1193Provider, type JsonRpcSigner } from 'ethers';
 
 /**
- * Minimal EIP-1193 wallet binding.
+ * Minimal EIP-1193 wallet binding, shared across the app through context.
+ *
+ * Context rather than a bare hook because the connection is a property of the
+ * session, not of whichever component happens to need it. Two independent hook
+ * instances would each hold their own `connecting` flag and could disagree about
+ * whether a prompt is already open.
  *
  * Deliberately not wagmi. This app needs one contract call from one wallet; a
  * connector framework would be more surface area than the feature it serves,
@@ -54,7 +67,7 @@ export function describeWalletError(error: unknown): string {
   return err?.shortMessage ?? err?.message ?? 'The wallet rejected the request.';
 }
 
-export function useWallet(): Wallet {
+function useWalletState(): Wallet {
   const available = typeof window !== 'undefined' && Boolean(window.ethereum);
 
   const [status, setStatus] = useState<WalletStatus>(available ? 'disconnected' : 'unsupported');
@@ -182,4 +195,18 @@ export function useWallet(): Wallet {
     () => ({ status, address, chainId, error, connect, switchTo, getSigner, clearError }),
     [status, address, chainId, error, connect, switchTo, getSigner, clearError],
   );
+}
+
+const WalletContext = createContext<Wallet | undefined>(undefined);
+
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const wallet = useWalletState();
+  return <WalletContext.Provider value={wallet}>{children}</WalletContext.Provider>;
+}
+
+/** The connected wallet. Throws outside a WalletProvider rather than silently no-op. */
+export function useWallet(): Wallet {
+  const wallet = useContext(WalletContext);
+  if (!wallet) throw new Error('useWallet must be used inside a WalletProvider');
+  return wallet;
 }

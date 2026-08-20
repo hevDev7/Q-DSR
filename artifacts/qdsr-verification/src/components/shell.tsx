@@ -18,6 +18,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useGetChainConfig, useGetStats } from '@workspace/api-client-react';
 
+import { WalletButton } from './wallet-button';
+
 const navItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/queue', label: 'Verification queue', icon: FileSearch },
@@ -132,14 +134,22 @@ export function Shell({ children }: { children: ReactNode }) {
             <Settings2 size={16} />
             Protocol settings
           </Link>
+          {/* The attestor is the server's key, not the visitor's wallet. Those are
+              different accounts with different powers, and labelling this one
+              "Operator" next to a Connect Wallet button would blur them. */}
           <div className="mt-4 flex items-center gap-3 border-t border-[#20292a] px-2 pt-4">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2a3940] font-mono text-[10px] text-[#9ed4cc]">
-              OP
+              AT
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[11px] font-semibold text-[#dbe4d7]">Operator</div>
+              <div className="truncate text-[11px] font-semibold text-[#dbe4d7]">Attestor</div>
               <div className="truncate font-mono text-[9px] text-[#647069]">
-                {chain?.attestorAddress ? `${chain.attestorAddress.slice(0, 10)}…` : 'local session'}
+                {chain?.attestorAddress
+                  ? `${chain.attestorAddress.slice(0, 10)}…`
+                  : 'no chain configured'}
+              </div>
+              <div className="mt-0.5 truncate font-mono text-[8px] text-[#4f5a52]">
+                writes verdicts · not your wallet
               </div>
             </div>
           </div>
@@ -169,7 +179,8 @@ export function Shell({ children }: { children: ReactNode }) {
               Q-DSR / <span className="text-[#b5c0ae]">{current}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <WalletButton />
             <span
               data-testid="text-chain-status"
               className="hidden items-center gap-2 font-mono text-[10px] text-[#768278] sm:flex"
