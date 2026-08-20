@@ -1,3 +1,12 @@
+/** The metadata struct AgenticID.mint expects. */
+export interface AgentMetadata {
+  name: string;
+  description: string;
+  /** http(s) URL. Empty makes the contract generate an SVG from the agent's metrics. */
+  image: string;
+  evidenceURI: string;
+}
+
 export interface VerdictSubmission {
   agentId: string;
   evidenceRoot: string;

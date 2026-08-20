@@ -98,7 +98,7 @@ describe('QDSR_REGISTRY_ABI', () => {
 describe('AGENTIC_ID_ABI', () => {
   it('can read what a minted token stands for', () => {
     const surface = AGENTIC_ID_ABI.join('\n');
-    for (const fragment of ['recordOf', 'ownerOf', 'encryptedURI', 'isStillCertified']) {
+    for (const fragment of ['recordOf', 'ownerOf', 'metadataOf', 'tokenURI', 'isStillCertified']) {
       expect(surface).toContain(fragment);
     }
   });

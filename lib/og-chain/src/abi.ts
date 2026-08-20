@@ -24,19 +24,22 @@ export const QDSR_REGISTRY_ABI = [
 ] as const;
 
 export const AGENTIC_ID_ABI = [
-  'function mint(address to, bytes32 agentId, string metadataURI, bytes32 metadataHash) returns (uint256)',
+  'function mint(address to, bytes32 agentId, (string name, string description, string image, string evidenceURI) metadata, bytes32 metadataHash) returns (uint256)',
   'function tokenIdOfAgent(bytes32 agentId) view returns (uint256)',
   'function isStillCertified(uint256 tokenId) view returns (bool)',
   'function totalMinted() view returns (uint256)',
   'function ownerOf(uint256 tokenId) view returns (address)',
-  'function encryptedURI(uint256 tokenId) view returns (string)',
+  'function metadataOf(uint256 tokenId) view returns (tuple(string name, string description, string image, string evidenceURI))',
+  'function tokenURI(uint256 tokenId) view returns (string)',
+  'function supportsInterface(bytes4 interfaceId) view returns (bool)',
+  'function ERC7857_INTERFACE_ID() view returns (bytes4)',
   // What a token stands for. Without this a client can see that an Agentic ID
   // exists but not which agent, evidence or verdict it was minted against.
   'function recordOf(uint256 tokenId) view returns (tuple(bytes32 agentId, bytes32 metadataHash, uint256 verdictIndex, uint64 mintedAt))',
   'function authorisationOf(uint256 tokenId, address executor) view returns (bytes)',
   'function name() view returns (string)',
   'function symbol() view returns (string)',
-  'event AgenticIdMinted(uint256 indexed tokenId, bytes32 indexed agentId, address indexed to, bytes32 metadataHash, string metadataURI)',
+  'event AgenticIdMinted(uint256 indexed tokenId, bytes32 indexed agentId, address indexed to, bytes32 metadataHash, string evidenceURI)',
   // Declared so a client can decode a revert into a name rather than raw bytes.
   // The blocked mint is the protocol's most important outcome; it deserves a
   // readable answer.
