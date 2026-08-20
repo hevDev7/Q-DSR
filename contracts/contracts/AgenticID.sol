@@ -59,7 +59,15 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     IQDSRRegistry public immutable registry;
     IOracle public immutable oracle;
 
+    /**
+     * @dev Holds no on-chain authority. `registry` and `oracle` are immutable and
+     *      nothing else is gated on `onlyOwner`, so this role cannot pause, mint,
+     *      seize, or re-point anything — the contract is final once deployed.
+     *      It is kept because marketplaces and explorers read `owner()` as the
+     *      collection-admin convention for off-chain listing metadata.
+     */
     address public owner;
+    address public pendingOwner;
     uint256 private _nextTokenId = 1;
 
     mapping(uint256 => AgentRecord) private _records;
@@ -92,6 +100,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     event SealedTransfer(uint256 indexed tokenId, address indexed from, address indexed to);
     event Cloned(uint256 indexed sourceTokenId, uint256 indexed newTokenId, address indexed to);
     // UsageAuthorized and MetadataUpdated are declared by IERC7857.
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // ---------------------------------------------------------------------
@@ -99,6 +108,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     // ---------------------------------------------------------------------
 
     error NotOwner();
+    error NotPendingOwner();
     error ZeroAddress();
     error AgentNotCertified(bytes32 agentId);
     error AgentAlreadyMinted(bytes32 agentId, uint256 tokenId);
@@ -117,12 +127,6 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         _;
     }
 
-    /// @dev The ERC-7857 oracle gate, applied to sealed-key operations.
-    modifier validProof(bytes calldata proof) {
-        if (address(oracle) == address(0)) revert InvalidProof();
-        if (!oracle.verifyProof(proof)) revert InvalidProof();
-        _;
-    }
 
     constructor(address registryAddress)
         ERC721("Q-DSR Agentic ID", "QAID")
@@ -165,8 +169,10 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         }
 
         tokenId = _nextTokenId++;
-        _safeMint(to, tokenId);
 
+        // State first. _safeMint calls onERC721Received on a contract recipient,
+        // and a receiver that read this token mid-callback would see an unwritten
+        // record — tokenURI empty, recordOf zeroed, tokenIdOfAgent still unset.
         _records[tokenId] = AgentRecord({
             agentId: agentId,
             metadataHash: metadataHash,
@@ -176,12 +182,29 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         _metadata[tokenId] = metadata;
         tokenIdOfAgent[agentId] = tokenId;
 
+        _safeMint(to, tokenId);
+
         emit AgenticIdMinted(tokenId, agentId, to, metadataHash, metadata.evidenceURI);
     }
 
     // ---------------------------------------------------------------------
     // ERC-7857 surface
     // ---------------------------------------------------------------------
+
+    /**
+     * @dev The oracle gate for sealed-key operations.
+     *
+     * The proof must name *this token's* agent. Checking only that the oracle
+     * accepts the proof would let a holder pass any certified agent's id and
+     * satisfy the gate — the requirement would read as a constraint while
+     * constraining nothing.
+     */
+    function _requireProofFor(uint256 tokenId, bytes calldata proof) internal view {
+        if (address(oracle) == address(0)) revert InvalidProof();
+        if (proof.length != 32) revert InvalidProof();
+        if (abi.decode(proof, (bytes32)) != _records[tokenId].agentId) revert InvalidProof();
+        if (!oracle.verifyProof(proof)) revert InvalidProof();
+    }
 
     /**
      * @notice Transfers an Agentic ID together with a re-sealed metadata key.
@@ -194,10 +217,11 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         uint256 tokenId,
         bytes calldata sealedKey,
         bytes calldata proof
-    ) external override validProof(proof) nonReentrant {
+    ) external override nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (sealedKey.length == 0) revert EmptySealedKey();
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        _requireProofFor(tokenId, proof);
         if (_ownerOf(tokenId) != from) revert NotTokenOwner(tokenId, from);
         if (msg.sender != from && !isApprovedForAll(from, msg.sender)) {
             revert NotTokenOwner(tokenId, msg.sender);
@@ -220,16 +244,17 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         uint256 tokenId,
         bytes calldata sealedKey,
         bytes calldata proof
-    ) external override validProof(proof) nonReentrant returns (uint256 newTokenId) {
+    ) external override nonReentrant returns (uint256 newTokenId) {
         if (to == address(0)) revert ZeroAddress();
         if (sealedKey.length == 0) revert EmptySealedKey();
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        _requireProofFor(tokenId, proof);
         if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId, msg.sender);
 
         AgentRecord memory source = _records[tokenId];
 
         newTokenId = _nextTokenId++;
-        _safeMint(to, newTokenId);
+
         _records[newTokenId] = AgentRecord({
             agentId: source.agentId,
             metadataHash: source.metadataHash,
@@ -238,6 +263,8 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         });
         _metadata[newTokenId] = _metadata[tokenId];
         _sealedKeys[newTokenId] = sealedKey;
+
+        _safeMint(to, newTokenId);
 
         emit Cloned(tokenId, newTokenId, to);
         emit MetadataUpdated(newTokenId, keccak256(sealedKey));
@@ -352,9 +379,18 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         return interfaceId == ERC7857_INTERFACE_ID || super.supportsInterface(interfaceId);
     }
 
+    /// @notice Step one of a two-step handover of the collection-admin role.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Step two — the nominee claims the role.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner();
+        emit OwnershipTransferred(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 }
