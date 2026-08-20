@@ -10,6 +10,7 @@ export {
 } from './networks.js';
 export {
   ChainNotConfiguredError,
+  VerdictPendingError,
   type AgentMetadata,
   type AnchorReceipt,
   type ChainClient,

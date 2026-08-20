@@ -24,7 +24,8 @@ export interface AnchorReceipt {
   chainId: number;
   registryAddress: string;
   txHash: string;
-  blockNumber: number;
+  /** Absent when the transaction is known only by hash — a lookup rather than a receipt. */
+  blockNumber?: number;
   explorerUrl: string;
 }
 
@@ -52,6 +53,31 @@ export interface ChainClient {
    * know about it otherwise.
    */
   tokenIdOf(agentId: string): Promise<string | undefined>;
+  /**
+   * An already-recorded verdict matching this submission, if one exists.
+   *
+   * Checked before submitting. The registry is append-only, so re-anchoring a
+   * verdict that already landed would write an identical duplicate rather than
+   * fail — which is exactly what a retry after an ambiguous timeout would do.
+   */
+  findVerdict(submission: VerdictSubmission): Promise<AnchorReceipt | undefined>;
+}
+
+/**
+ * The transaction was broadcast but its outcome is not known yet.
+ *
+ * Distinct from a failure on purpose: a timeout means we stopped waiting, not
+ * that the chain rejected anything. Recording it as failed invites a retry that
+ * double-submits, and tells the operator something that may well be false.
+ */
+export class VerdictPendingError extends Error {
+  constructor(
+    readonly txHash: string,
+    override readonly cause?: unknown,
+  ) {
+    super(`Verdict transaction ${txHash} was broadcast but has not been confirmed yet`);
+    this.name = 'VerdictPendingError';
+  }
 }
 
 export interface ChainConfig {

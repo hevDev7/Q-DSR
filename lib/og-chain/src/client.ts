@@ -9,6 +9,7 @@ import {
   type ChainConfig,
   type ChainStatus,
   type VerdictSubmission,
+  VerdictPendingError,
 } from './types.js';
 
 /**
@@ -32,6 +33,10 @@ export class DisabledChainClient implements ChainClient {
   }
 
   async tokenIdOf(): Promise<string | undefined> {
+    return undefined;
+  }
+
+  async findVerdict(): Promise<undefined> {
     return undefined;
   }
 }
@@ -74,6 +79,9 @@ export class OgChainClient implements ChainClient {
     };
   }
 
+  /** How long to wait for a verdict transaction before calling the outcome unknown. */
+  private static readonly CONFIRMATION_TIMEOUT_MS = 120_000;
+
   async submitVerdict(submission: VerdictSubmission): Promise<AnchorReceipt> {
     const tx = await this.registry.submitVerdict!(
       submission.agentId,
@@ -85,16 +93,57 @@ export class OgChainClient implements ChainClient {
       submission.trials,
       submission.observations,
     );
-    const receipt = await tx.wait();
-    if (!receipt) throw new Error(`Transaction ${tx.hash} produced no receipt`);
 
+    let receipt;
+    try {
+      receipt = await tx.wait(1, OgChainClient.CONFIRMATION_TIMEOUT_MS);
+    } catch (error) {
+      // Waiting stopped; the transaction did not. Reporting this as a failure
+      // would be a claim about the chain we have not checked, and would invite a
+      // retry that submits a second identical verdict into an append-only log.
+      throw new VerdictPendingError(tx.hash, error);
+    }
+    if (!receipt) throw new VerdictPendingError(tx.hash);
+
+    return this.receiptToAnchor(receipt.hash, receipt.blockNumber);
+  }
+
+  /**
+   * Looks for a verdict already on chain matching this submission.
+   *
+   * Compares the evidence root and result digest rather than the metrics: those
+   * two together name the exact bundle and the exact computed answer, so a match
+   * is the same verdict rather than merely a similar one.
+   */
+  async findVerdict(submission: VerdictSubmission): Promise<AnchorReceipt | undefined> {
+    const count = (await this.registry.verdictCount!(submission.agentId)) as bigint;
+    if (count === 0n) return undefined;
+
+    for (let index = count - 1n; index >= 0n; index--) {
+      const verdict = await this.registry.verdictAt!(submission.agentId, index);
+      if (
+        String(verdict.evidenceRoot).toLowerCase() === submission.evidenceRoot.toLowerCase() &&
+        String(verdict.resultDigest).toLowerCase() === submission.resultDigest.toLowerCase()
+      ) {
+        const logs = await this.registry.queryFilter!(
+          this.registry.filters!.VerdictSubmitted!(submission.agentId, index),
+        );
+        const log = logs[0];
+        return this.receiptToAnchor(log?.transactionHash ?? '', log?.blockNumber);
+      }
+      if (index === 0n) break;
+    }
+    return undefined;
+  }
+
+  private receiptToAnchor(txHash: string, blockNumber?: number): AnchorReceipt {
     const explorerBase = networkForChainId(this.chainId)?.explorerBaseUrl ?? '';
     return {
       chainId: this.chainId,
       registryAddress: this.registryAddress,
-      txHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      explorerUrl: explorerBase ? `${explorerBase}/tx/${receipt.hash}` : receipt.hash,
+      txHash,
+      blockNumber,
+      explorerUrl: explorerBase && txHash ? `${explorerBase}/tx/${txHash}` : txHash,
     };
   }
 
