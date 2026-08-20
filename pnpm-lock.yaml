@@ -540,6 +540,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/og-chain':
+        specifier: workspace:*
+        version: link:../../lib/og-chain
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -555,6 +558,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.1.0)
+      ethers:
+        specifier: ^6.13.5
+        version: 6.17.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       framer-motion:
         specifier: 'catalog:'
         version: 12.42.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
