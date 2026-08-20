@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {AgenticIdMetadata} from "./AgenticIdMetadata.sol";
@@ -63,6 +64,14 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
 
     mapping(uint256 => AgentRecord) private _records;
     mapping(uint256 => AgentMetadata) private _metadata;
+    /**
+     * @dev The metadata key, sealed for the current holder.
+     *
+     * ERC-7857's model is that the key travels with the token, re-encrypted for
+     * each new owner. Accepting a sealed key and discarding it would be worse
+     * than not accepting one, so it is stored and replaced on every transfer.
+     */
+    mapping(uint256 => bytes) private _sealedKeys;
     /// @dev One Agentic ID per certified agent — identity is not fungible.
     mapping(bytes32 => uint256) public tokenIdOfAgent;
     /// @dev tokenId => executor => permissions blob.
@@ -82,7 +91,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     event MintBlocked(bytes32 indexed agentId, address indexed caller, string reason);
     event SealedTransfer(uint256 indexed tokenId, address indexed from, address indexed to);
     event Cloned(uint256 indexed sourceTokenId, uint256 indexed newTokenId, address indexed to);
-    event UsageAuthorised(uint256 indexed tokenId, address indexed executor);
+    // UsageAuthorized and MetadataUpdated are declared by IERC7857.
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // ---------------------------------------------------------------------
@@ -194,8 +203,11 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
             revert NotTokenOwner(tokenId, msg.sender);
         }
 
+        _sealedKeys[tokenId] = sealedKey;
         _transfer(from, to, tokenId);
+
         emit SealedTransfer(tokenId, from, to);
+        emit MetadataUpdated(tokenId, keccak256(sealedKey));
     }
 
     /**
@@ -225,8 +237,10 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
             mintedAt: uint64(block.timestamp)
         });
         _metadata[newTokenId] = _metadata[tokenId];
+        _sealedKeys[newTokenId] = sealedKey;
 
         emit Cloned(tokenId, newTokenId, to);
+        emit MetadataUpdated(newTokenId, keccak256(sealedKey));
     }
 
     /// @notice Grants an executor permission to run the agent without transferring it.
@@ -240,7 +254,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         if (executor == address(0)) revert ZeroAddress();
 
         _authorisations[tokenId][executor] = permissions;
-        emit UsageAuthorised(tokenId, executor);
+        emit UsageAuthorized(tokenId, executor);
     }
 
     // ---------------------------------------------------------------------
@@ -250,6 +264,17 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     function recordOf(uint256 tokenId) external view returns (AgentRecord memory) {
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
         return _records[tokenId];
+    }
+
+    /**
+     * @notice The metadata key sealed for this token's current holder.
+     * @dev Readable by anyone; it is ciphertext, and only the holder's private key
+     *      opens it. Empty for a token that has never been transferred, because a
+     *      mint has no previous owner to re-seal from.
+     */
+    function sealedKeyOf(uint256 tokenId) external view returns (bytes memory) {
+        if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
+        return _sealedKeys[tokenId];
     }
 
     function metadataOf(uint256 tokenId) external view returns (AgentMetadata memory) {
@@ -308,8 +333,9 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
      *      Computed here rather than hardcoded, so it cannot drift from the
      *      interface it claims to describe.
      */
-    bytes4 public constant ERC7857_INTERFACE_ID =
-        IERC7857.transfer.selector ^ IERC7857.clone.selector ^ IERC7857.authorizeUsage.selector;
+    /// @dev Solidity excludes inherited functions from `type(I).interfaceId`, so this
+    ///      covers exactly the three calls ERC-7857 adds on top of ERC-721.
+    bytes4 public constant ERC7857_INTERFACE_ID = type(IERC7857).interfaceId;
 
     /**
      * @dev Without this an Agentic ID is indistinguishable on chain from any other
@@ -317,7 +343,12 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
      *      against the standards they have implemented, and ERC-7857 is a draft —
      *      but a contract or an indexer can now detect it.
      */
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, IERC165)
+        returns (bool)
+    {
         return interfaceId == ERC7857_INTERFACE_ID || super.supportsInterface(interfaceId);
     }
 

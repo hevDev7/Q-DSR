@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 /**
  * @title IERC7857
  * @notice The Agentic ID surface: transferring, cloning and delegating an AI agent
  *         together with its encrypted intelligence, rather than a pointer to it.
  *
- * ERC-7857 is a draft that extends ERC-721. A contract implementing it answers
- * `supportsInterface` for ERC-721 as well, which is why a block explorer that only
- * knows the registered standards will label it ERC-721 — that label is not wrong,
- * it is just less specific than the truth.
+ * Declared as `is IERC721` to match the draft. Solidity's `type(I).interfaceId`
+ * excludes inherited functions, so the identifier still covers only the three
+ * calls ERC-7857 adds — which is what a caller checking for Agentic ID support
+ * wants to ask about.
  *
- * Declaring this interface is what lets another contract or an indexer detect an
- * Agentic ID programmatically instead of inferring it from a name.
+ * A block explorer that only knows the registered standards will label an
+ * implementation ERC-721. That is not wrong, only less specific; declaring this
+ * interface is what lets a contract or an indexer get the fuller answer.
  */
-interface IERC7857 {
+interface IERC7857 is IERC721 {
     /// @notice Transfers an agent along with its metadata key, re-sealed for the recipient.
     function transfer(
         address from,
@@ -38,4 +41,10 @@ interface IERC7857 {
         address executor,
         bytes calldata permissions
     ) external;
+
+    /// @notice Emitted whenever the sealed metadata key for a token changes hands.
+    event MetadataUpdated(uint256 indexed tokenId, bytes32 sealedKeyHash);
+
+    /// @notice Emitted when an executor is granted the right to run an agent.
+    event UsageAuthorized(uint256 indexed tokenId, address indexed executor);
 }

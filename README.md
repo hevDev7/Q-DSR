@@ -212,6 +212,15 @@ implementation already expects — so any ERC-7857 contract can consult Q-DSR
 without modification. `AgenticID.mint` replaces the reference implementation's
 owner check with `registry.isCertified(agentId)`.
 
+**What conforms and what does not:** [docs/ERC7857.md](docs/ERC7857.md). The
+interface, the ERC-165 identifier and the standard's events are implemented. The
+confidentiality model is not — this protocol publishes its evidence so a stranger
+can re-run it, and encrypting that would make the claim uncheckable. Sealed keys
+are recorded and replaced but never re-encrypted, and the oracle hook is reused to
+answer "is this agent certified" rather than "was this re-encryption valid". Those
+are choices, and the document says so plainly rather than leaving a reviewer to
+find out from the source.
+
 ### Live on 0G Galileo testnet
 
 | Contract | Address |

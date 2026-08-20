@@ -30,6 +30,7 @@ export const AGENTIC_ID_ABI = [
   'function totalMinted() view returns (uint256)',
   'function ownerOf(uint256 tokenId) view returns (address)',
   'function metadataOf(uint256 tokenId) view returns (tuple(string name, string description, string image, string evidenceURI))',
+  'function sealedKeyOf(uint256 tokenId) view returns (bytes)',
   'function tokenURI(uint256 tokenId) view returns (string)',
   'function supportsInterface(bytes4 interfaceId) view returns (bool)',
   'function ERC7857_INTERFACE_ID() view returns (bytes4)',
@@ -40,6 +41,9 @@ export const AGENTIC_ID_ABI = [
   'function name() view returns (string)',
   'function symbol() view returns (string)',
   'event AgenticIdMinted(uint256 indexed tokenId, bytes32 indexed agentId, address indexed to, bytes32 metadataHash, string evidenceURI)',
+  // Declared by ERC-7857 itself, so an indexer written against the standard finds them.
+  'event MetadataUpdated(uint256 indexed tokenId, bytes32 sealedKeyHash)',
+  'event UsageAuthorized(uint256 indexed tokenId, address indexed executor)',
   // Declared so a client can decode a revert into a name rather than raw bytes.
   // The blocked mint is the protocol's most important outcome; it deserves a
   // readable answer.

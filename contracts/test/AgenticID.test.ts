@@ -239,7 +239,7 @@ describe('AgenticID', () => {
       const permissions = ethers.toUtf8Bytes('read:signals');
       await expect(agentic.connect(holder).authorizeUsage(1, outsider.address, permissions)).to.emit(
         agentic,
-        'UsageAuthorised',
+        'UsageAuthorized',
       );
 
       expect(await agentic.authorisationOf(1, outsider.address)).to.equal(
@@ -349,6 +349,46 @@ describe('AgenticID', () => {
       const { agentic } = await deploy();
       const id = await agentic.ERC7857_INTERFACE_ID();
       expect(await agentic.supportsInterface(id)).to.equal(true);
+    });
+
+    it('keeps the sealed key rather than discarding it', async () => {
+      // The standard's model is that the metadata key travels with the token,
+      // re-encrypted for each new owner. Validating one and throwing it away
+      // would be worse than not accepting one.
+      const { agentic, holder, recipient, certifiedAgent, proofFor } = await deploy();
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+      expect(await agentic.sealedKeyOf(1)).to.equal('0x');
+
+      const sealed = ethers.hexlify(ethers.toUtf8Bytes('sealed-for-recipient'));
+      await agentic
+        .connect(holder)
+        .transfer(holder.address, recipient.address, 1, sealed, proofFor(certifiedAgent));
+
+      expect(await agentic.sealedKeyOf(1)).to.equal(sealed);
+    });
+
+    it('announces a new sealed key with MetadataUpdated', async () => {
+      const { agentic, holder, recipient, certifiedAgent, proofFor } = await deploy();
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+      const sealed = ethers.hexlify(ethers.toUtf8Bytes('sealed'));
+
+      await expect(
+        agentic
+          .connect(holder)
+          .transfer(holder.address, recipient.address, 1, sealed, proofFor(certifiedAgent)),
+      )
+        .to.emit(agentic, 'MetadataUpdated')
+        .withArgs(1n, ethers.keccak256(sealed));
+    });
+
+    it('seals a clone under its own key, not the original', async () => {
+      const { agentic, holder, recipient, certifiedAgent, proofFor } = await deploy();
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+      const forClone = ethers.hexlify(ethers.toUtf8Bytes('sealed-for-clone'));
+
+      await agentic.connect(holder).clone(recipient.address, 1, forClone, proofFor(certifiedAgent));
+      expect(await agentic.sealedKeyOf(2)).to.equal(forClone);
+      expect(await agentic.sealedKeyOf(1)).to.equal('0x');
     });
 
     it('derives that id from the three functions ERC-7857 adds', async () => {
