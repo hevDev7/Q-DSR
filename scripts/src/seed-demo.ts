@@ -1,9 +1,17 @@
 /**
  * Populates a running API server with a demonstrative fleet.
  *
- * Two agents built from pure noise, one with a genuine but unprovable edge, and
- * one that clears the bar. The near-miss matters most: it shows the protocol is
- * a measurement rather than a binary theatre.
+ * Four agents telling four different stories:
+ *
+ *   Cinder Delta   a real edge with six years behind it        -> certified
+ *   Vega Lantern   the same kind of edge, only three years     -> not yet provable
+ *   Orbital Carry  pure noise                                  -> rejected
+ *   Juniper Flow   pure noise                                  -> rejected
+ *
+ * Vega Lantern is the one worth demonstrating. It is not a strawman and not a
+ * fraud — it is a genuine edge that the record is still too short to prove, and
+ * the protocol says so rather than rounding it up. A fleet of obvious passes and
+ * obvious failures would suggest the bar is decorative.
  *
  *   pnpm --filter @workspace/scripts exec tsx src/seed-demo.ts
  */
@@ -47,7 +55,9 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 
 const FLEET = [
   { name: 'Cinder Delta', family: 'Market-neutral / ETH', owner: 'quants@cinder', kind: 'genuine', seed: 4242 },
-  { name: 'Vega Lantern', family: 'Options volatility / ETH', owner: 'dev@vega', kind: 'genuine', seed: 7101 },
+  // Deliberately short: a real edge, three years of record, not yet provable at
+  // sixty trials. This is the interesting verdict.
+  { name: 'Vega Lantern', family: 'Options volatility / ETH', owner: 'dev@vega', kind: 'genuine', seed: 7101, observations: 756 },
   { name: 'Orbital Carry', family: 'Funding carry / SOL', owner: 'ops@orbital', kind: 'overfit', seed: 9931 },
   { name: 'Juniper Flow', family: 'Order flow / BTC', owner: 'research@juniper', kind: 'overfit', seed: 20260820 },
 ] as const;
@@ -67,9 +77,10 @@ async function main(): Promise<void> {
 
     const sample = await call<Sample>('/evidence/sample', {
       kind: spec.kind,
-      observations: 756,
       trials: 60,
       seed: spec.seed,
+      // Omitted for most agents so the server picks a length suited to the kind.
+      ...('observations' in spec ? { observations: spec.observations } : {}),
     });
 
     const started = await call<Run>(`/agents/${agent.id}/verify`, {

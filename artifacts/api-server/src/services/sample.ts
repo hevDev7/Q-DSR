@@ -46,7 +46,20 @@ export function generateSampleEvidence(options: {
   trials?: number;
   seed?: number;
 }): SampleEvidence {
-  const observations = Math.max(252, Math.floor(options.observations ?? 756));
+  // The default track record differs by kind, because the two cases describe
+  // different researchers rather than the same researcher twice.
+  //
+  // The overfit sample is someone with three years of data and sixty knobs. That
+  // is exactly the setting that manufactures an impressive Sharpe ratio from
+  // nothing — around 1.4 annualised, which is the number worth showing.
+  //
+  // The genuine sample is someone with a modest real edge and six years to prove
+  // it. At three years the same edge is not yet provable and the engine refuses
+  // it, which is correct but makes a button labelled "genuine" produce a
+  // rejection. Lengthening the record rather than inflating the edge keeps the
+  // Sharpe ratio believable (~2.7) and certifies across every seed tested.
+  const defaultObservations = options.kind === 'genuine' ? 1512 : 756;
+  const observations = Math.max(252, Math.floor(options.observations ?? defaultObservations));
   const trials = Math.max(2, Math.floor(options.trials ?? 60));
   const seed = options.seed ?? 20260820;
 

@@ -862,6 +862,10 @@ export const getGenerateSampleEvidenceUrl = () => {
  * Produces a reproducible bundle for demonstration. `overfit` selects the best
  * of N pure-noise configurations — the case the protocol exists to catch.
  * `genuine` contains one configuration with a persistent edge.
+ *
+ * `observations` defaults by kind: 756 for `overfit` (three years and sixty
+ * knobs, which manufactures an impressive Sharpe ratio from nothing) and 1512
+ * for `genuine` (six years, long enough for a modest real edge to be provable).
  * @summary Generate a synthetic evidence bundle
  */
 export const generateSampleEvidence = async (sampleEvidenceRequest: SampleEvidenceRequest, options?: Parameters<typeof customFetch>[1]): Promise<SampleEvidence> => {

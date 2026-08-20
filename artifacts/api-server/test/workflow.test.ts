@@ -36,7 +36,8 @@ async function createAgent(name: string) {
 async function sample(kind: 'overfit' | 'genuine') {
   const response = await request(app)
     .post('/api/evidence/sample')
-    .send({ kind, observations: 756, trials: 60, seed: 4242 })
+    // No observations: the server's per-kind default is part of what we are testing.
+    .send({ kind, trials: 60, seed: 4242 })
     .expect(200);
   return response.body;
 }

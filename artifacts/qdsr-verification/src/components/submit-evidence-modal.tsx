@@ -88,7 +88,10 @@ export function SubmitEvidenceModal({
   const loadSample = (kind: SampleEvidenceKind) => {
     setReturnsFile(undefined);
     setTrialsFile(undefined);
-    sample.mutate({ data: { kind, observations: 756, trials: 60, seed: 20260820 } });
+    // Observations are left to the server, which picks a length appropriate to the
+    // kind. Pinning 756 here is what made "Load genuine sample" produce an agent
+    // the contract then refused.
+    sample.mutate({ data: { kind, trials: 60, seed: 20260820 } });
   };
 
   const readFile = async (event: ChangeEvent<HTMLInputElement>, slot: 'returns' | 'trials') => {
