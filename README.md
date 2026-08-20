@@ -402,7 +402,7 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (266 tests)
+- Statistics engine, contracts, API and UI: complete and tested (273 tests)
 - Contracts audited before mainnet; four findings fixed, each with a regression
   test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
 - Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks

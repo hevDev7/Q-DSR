@@ -1,4 +1,4 @@
-import { toBasisPoints, type ChainClient } from '@workspace/og-chain';
+import { toBasisPoints, type ChainClient, VerdictPendingError } from '@workspace/og-chain';
 import type { EvidenceStorage } from '@workspace/og-storage';
 import { verify } from '@workspace/qdsr-core';
 
@@ -118,7 +118,49 @@ export class AnchorService {
       );
     }
 
+    // Already on chain? Say so and stop. The registry is append-only, so
+    // re-submitting would write a second identical verdict rather than fail —
+    // and the previous success would be overwritten on the way there, which is
+    // how a healthy anchor turns into a `failed` record with the chain
+    // completely unchanged.
+    const existing = await this.store.getAnchor(run.id);
+    if (existing?.status === 'anchored') return existing;
+
+    const submission = {
+      agentId: agent.agentId,
+      evidenceRoot,
+      resultDigest: `0x${run.result.digest}`,
+      engineVersion: run.result.engineVersion,
+      dsrBps: toBasisPoints(run.result.dsr),
+      pboBps: toBasisPoints(run.result.pbo),
+      trials: run.result.trials,
+      observations: run.result.observations,
+    };
+
+    // Ask the chain before spending a transaction, always. A previous attempt may
+    // have landed after we stopped waiting, and a record saying `failed` is a
+    // claim about the chain that a timeout never actually established. For an
+    // agent with no verdicts this is one cheap read that returns immediately.
+    const alreadyOnChain = await this.chain.findVerdict(submission);
+    if (alreadyOnChain) {
+      return this.store.upsertAnchor({
+        ...existing,
+        runId: run.id,
+        evidenceRoot,
+        storageMode: this.storage.mode,
+        status: 'anchored',
+        chainId: alreadyOnChain.chainId,
+        registryAddress: alreadyOnChain.registryAddress,
+        chainTxHash: alreadyOnChain.txHash,
+        blockNumber: alreadyOnChain.blockNumber,
+        explorerUrl: alreadyOnChain.explorerUrl,
+        anchoredAt: new Date().toISOString(),
+        error: undefined,
+      });
+    }
+
     let anchor: AnchorRecord = {
+      ...existing,
       runId: run.id,
       status: 'pending',
       evidenceRoot,
@@ -127,16 +169,7 @@ export class AnchorService {
     await this.store.upsertAnchor(anchor);
 
     try {
-      const receipt = await this.chain.submitVerdict({
-        agentId: agent.agentId,
-        evidenceRoot,
-        resultDigest: `0x${run.result.digest}`,
-        engineVersion: run.result.engineVersion,
-        dsrBps: toBasisPoints(run.result.dsr),
-        pboBps: toBasisPoints(run.result.pbo),
-        trials: run.result.trials,
-        observations: run.result.observations,
-      });
+      const receipt = await this.chain.submitVerdict(submission);
 
       anchor = {
         ...anchor,
@@ -153,18 +186,39 @@ export class AnchorService {
       await this.onAudit({
         actor: 'verification-engine',
         action: 'Verdict anchored on 0G Chain',
-        detail: `${agent.name} · block ${receipt.blockNumber.toLocaleString()} · ${receipt.txHash.slice(0, 18)}…`,
+        detail:
+          `${agent.name} · block ${receipt.blockNumber?.toLocaleString() ?? '—'} · ` +
+          `${receipt.txHash.slice(0, 18)}…`,
         tone: 'good',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      anchor = { ...anchor, status: 'failed', error: message };
-      await this.onAudit({
-        actor: 'verification-engine',
-        action: 'Chain anchoring failed',
-        detail: `${agent.name} · ${message}`,
-        tone: 'warn',
-      });
+      if (error instanceof VerdictPendingError) {
+        const pending = error;
+        // Broadcast, outcome unknown. Calling this failed would assert something
+        // about the chain nobody checked, and the retry it invites is exactly
+        // what writes a duplicate verdict.
+        anchor = {
+          ...anchor,
+          status: 'pending',
+          chainTxHash: pending.txHash,
+          error: 'broadcast, awaiting confirmation — retry to check whether it landed',
+        };
+        await this.onAudit({
+          actor: 'verification-engine',
+          action: 'Verdict broadcast, not yet confirmed',
+          detail: `${agent.name} · ${pending.txHash.slice(0, 18)}… · retry to reconcile`,
+          tone: 'warn',
+        });
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        anchor = { ...anchor, status: 'failed', error: message };
+        await this.onAudit({
+          actor: 'verification-engine',
+          action: 'Chain anchoring failed',
+          detail: `${agent.name} · ${message}`,
+          tone: 'warn',
+        });
+      }
     }
 
     return this.store.upsertAnchor(anchor);
