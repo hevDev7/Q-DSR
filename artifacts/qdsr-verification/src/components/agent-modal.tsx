@@ -18,6 +18,7 @@ import {
   relativeTime,
   shortHash,
 } from '../lib/format';
+import { MintPanel } from './mint-panel';
 import { GhostButton, ModalShell, PrimaryButton, StatusBadge } from './primitives';
 
 export function AgentModal({
@@ -291,6 +292,8 @@ export function AgentModal({
           </div>
         </>
       )}
+
+      <MintPanel agentId={agent.id} />
 
       <div className="flex flex-col-reverse justify-between gap-3 border-t border-[#263031] bg-[#0e1517] p-5 sm:flex-row sm:items-center">
         <span className="font-mono text-[9px] text-[#657269]">
