@@ -225,10 +225,12 @@ find out from the source.
 
 | Contract | Address |
 |---|---|
-| `QDSRRegistry` | [`0xaf239cCe0eD261D8B8A097C663fA8C04814c2797`](https://chainscan-galileo.0g.ai/address/0xaf239cCe0eD261D8B8A097C663fA8C04814c2797#code) |
-| `AgenticID` | [`0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc`](https://chainscan-galileo.0g.ai/address/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc#code) |
+| `QDSRRegistry` | [`0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950`](https://chainscan-galileo.0g.ai/address/0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950#code) |
+| `AgenticID` | [`0x8559ec6DDe62450508846DB825B31f9722707687`](https://chainscan-galileo.0g.ai/address/0x8559ec6DDe62450508846DB825B31f9722707687#code) |
 
-Source is verified — the `#code` tab shows Solidity, not bytecode.
+Source is verified — the `#code` tab shows Solidity, not bytecode. These addresses
+carry the post-audit contracts; see [DEPLOYMENT.md](docs/DEPLOYMENT.md) for what
+changed and which deployments they superseded.
 
 **Both 0G components are live.** Verdicts and Agentic IDs go to 0G Chain; evidence
 bundles and token artwork go to 0G Storage, where the root hash in a verdict
@@ -260,6 +262,17 @@ The metrics are read live from the registry, not copied at mint time — a token
 whose agent later fails re-verification stops claiming to be certified. Artwork is
 optional: with none supplied the contract draws an SVG from the agent's own DSR
 and PBO, so a token always renders.
+
+### Audit
+
+These contracts have no proxy, no pause and no upgrade path, so they were reviewed
+before the deploy rather than after it. Four findings, each reproduced against the
+live code, fixed, and held down by a regression test that fails on the previous
+version: **[docs/AUDIT.md](docs/AUDIT.md)**.
+
+The most serious was markup injection — `_escape` did JSON escaping and was used to
+build the SVG, so an agent named `</text><script>…</script><text>` shipped a live
+script tag into every wallet that rendered the token.
 
 ### Deploying
 
@@ -345,10 +358,14 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (201 tests)
-- Deployed and source-verified on 0G Galileo testnet; 15/15 deployment checks pass
+- Statistics engine, contracts, API and UI: complete and tested (247 tests)
+- Contracts audited before mainnet; four findings fixed, each with a regression
+  test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
+- Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks
+  pass, including a byte-for-byte match between the deployed runtime code and
+  what this checkout compiles
 - Wallet-signed minting verified end to end by a human: Agentic ID
-  [token #2](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2)
+  [token #2](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2) on the pre-audit deployment
   is owned by the wallet that signed for it, not by this server, and carries its
   own DSR and PBO in on-chain metadata
 - 0G Storage: integrated, with a local fallback that produces identical roots

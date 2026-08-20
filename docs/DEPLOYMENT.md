@@ -32,7 +32,7 @@ verdict is recorded.
 | Check | Result |
 |---|---|
 | Deploy script writes both contracts and a deployments record | ✅ |
-| 15/15 deployment validation checks | ✅ |
+| 20/20 deployment validation checks | ✅ |
 | API server anchors a **certified** verdict on chain | ✅ block 8 |
 | API server anchors an **insignificant** verdict on chain | ✅ block 9 |
 | On-chain `isCertified` matches the engine verdict | ✅ true / false |
@@ -140,7 +140,7 @@ anchored agent should carry a working Chainscan link.
 
 ### Testnet exit criteria
 
-- [x] 15/15 validation checks pass on 16602
+- [x] 20/20 validation checks pass on 16602, including a bytecode identity match
 - [x] Both contracts verified on Chainscan
 - [x] A certified agent anchored, with an explorer link
 - [x] An insignificant agent anchored, with an explorer link
@@ -153,12 +153,17 @@ anchored agent should carry a working Chainscan link.
 
 | Contract | Address |
 |---|---|
-| `QDSRRegistry` | [`0xaf239cCe0eD261D8B8A097C663fA8C04814c2797`](https://chainscan-galileo.0g.ai/address/0xaf239cCe0eD261D8B8A097C663fA8C04814c2797#code) |
-| `AgenticID` | [`0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc`](https://chainscan-galileo.0g.ai/address/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc#code) |
+| `QDSRRegistry` | [`0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950`](https://chainscan-galileo.0g.ai/address/0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950#code) |
+| `AgenticID` | [`0x8559ec6DDe62450508846DB825B31f9722707687`](https://chainscan-galileo.0g.ai/address/0x8559ec6DDe62450508846DB825B31f9722707687#code) |
 
-An earlier pair — registry `0x7c62a903…`, Agentic ID `0x5dfD3d47…` — was superseded
-when the mint signature changed to carry on-chain metadata. It remains on the chain
-with its own valid tokens; the addresses above are the current ones.
+Two earlier pairs were superseded and remain on the chain with their own valid
+tokens. Nothing about them was rolled back — an immutable contract cannot be — so
+they are listed here rather than quietly dropped.
+
+| Superseded | Registry | Agentic ID | Why |
+|---|---|---|---|
+| first | `0x7c62a903…` | `0x5dfD3d47…` | mint signature changed to carry on-chain metadata |
+| second | [`0xaf239cCe0eD261D8B8A097C663fA8C04814c2797`](https://chainscan-galileo.0g.ai/address/0xaf239cCe0eD261D8B8A097C663fA8C04814c2797#code) | [`0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc`](https://chainscan-galileo.0g.ai/address/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc#code) | pre-audit; see [AUDIT.md](AUDIT.md) |
 
 **0G Storage is live.** Evidence bundles and token artwork are published rather
 than sealed locally, which is what makes the audit claim real: the root hash in a
@@ -192,7 +197,9 @@ that is not yet provable at sixty trials is still not provable.
 **A wallet-signed mint, by a human.** Cinder Delta was minted from a browser
 wallet rather than by this server:
 
-[`Agentic ID #2`](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2)
+[`Agentic ID #2`](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2) — on the second deployment, before the
+audit fixes. The flow is unchanged on the current contracts; the token stays here
+as evidence of a human wallet signing rather than the server.
 
 | | |
 |---|---|
