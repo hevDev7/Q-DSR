@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Interface } from 'ethers';
 
 import {
+  AGENTIC_ID_ABI,
   ChainNotConfiguredError,
   QDSR_REGISTRY_ABI,
   DisabledChainClient,
@@ -91,6 +92,29 @@ describe('QDSR_REGISTRY_ABI', () => {
       'evidenceRoot', 'resultDigest', 'engineVersionHash', 'dsrBps', 'pboBps',
       'trials', 'observations', 'submittedAt', 'attestor', 'certified',
     ]);
+  });
+});
+
+describe('AGENTIC_ID_ABI', () => {
+  it('can read what a minted token stands for', () => {
+    const surface = AGENTIC_ID_ABI.join('\n');
+    for (const fragment of ['recordOf', 'ownerOf', 'encryptedURI', 'isStillCertified']) {
+      expect(surface).toContain(fragment);
+    }
+  });
+
+  it('names the fields of a token record', () => {
+    const iface = new Interface(AGENTIC_ID_ABI as unknown as string[]);
+    const [output] = iface.getFunction('recordOf')!.outputs;
+    expect(output!.components?.map((c) => c.name)).toEqual([
+      'agentId', 'metadataHash', 'verdictIndex', 'mintedAt',
+    ]);
+  });
+
+  it('declares the custom errors so a blocked mint decodes into a name', () => {
+    const iface = new Interface(AGENTIC_ID_ABI as unknown as string[]);
+    expect(iface.getError('AgentNotCertified')).toBeTruthy();
+    expect(iface.getError('AgentAlreadyMinted')).toBeTruthy();
   });
 });
 

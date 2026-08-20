@@ -30,6 +30,10 @@ export const AGENTIC_ID_ABI = [
   'function totalMinted() view returns (uint256)',
   'function ownerOf(uint256 tokenId) view returns (address)',
   'function encryptedURI(uint256 tokenId) view returns (string)',
+  // What a token stands for. Without this a client can see that an Agentic ID
+  // exists but not which agent, evidence or verdict it was minted against.
+  'function recordOf(uint256 tokenId) view returns (tuple(bytes32 agentId, bytes32 metadataHash, uint256 verdictIndex, uint64 mintedAt))',
+  'function authorisationOf(uint256 tokenId, address executor) view returns (bytes)',
   'function name() view returns (string)',
   'function symbol() view returns (string)',
   'event AgenticIdMinted(uint256 indexed tokenId, bytes32 indexed agentId, address indexed to, bytes32 metadataHash, string metadataURI)',

@@ -212,6 +212,17 @@ implementation already expects — so any ERC-7857 contract can consult Q-DSR
 without modification. `AgenticID.mint` replaces the reference implementation's
 owner check with `registry.isCertified(agentId)`.
 
+### Live on 0G Galileo testnet
+
+| Contract | Address |
+|---|---|
+| `QDSRRegistry` | [`0x7c62a9035F00448116A1D30a05E23FE42200E436`](https://chainscan-galileo.0g.ai/address/0x7c62a9035F00448116A1D30a05E23FE42200E436#code) |
+| `AgenticID` | [`0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d`](https://chainscan-galileo.0g.ai/address/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d#code) |
+
+Source is verified — the `#code` tab shows Solidity, not bytecode. Four verdicts
+are anchored there, and one Agentic ID has been minted by a wallet that is not
+this server's.
+
 ### Deploying
 
 Full runbook: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Three staged gates —
@@ -296,9 +307,11 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (196 tests)
-- Wallet-signed minting: the developer connects their own wallet, signs, and pays
-  their own gas; verified end to end against a local node
+- Statistics engine, contracts, API and UI: complete and tested (201 tests)
+- Deployed and source-verified on 0G Galileo testnet; 15/15 deployment checks pass
+- Wallet-signed minting verified end to end by a human: Agentic ID
+  [token #2](https://chainscan-galileo.0g.ai/token/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d?a=2)
+  is owned by the wallet that signed for it, not by this server
 - 0G Storage: integrated, with a local fallback that produces identical roots
 - 0G Chain: integrated; contracts compiled and tested, mainnet deployment pending
 - 0G Compute TEE: **not implemented** — roadmap, for the reasons above

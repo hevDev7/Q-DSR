@@ -173,6 +173,21 @@ Vega Lantern is the one to look at. It missed on both gates — DSR 0.9369 again
 0.95, PBO 0.1061 against 0.10 — and the contract refused it anyway. A real edge
 that is not yet provable at sixty trials is still not provable.
 
+**A wallet-signed mint, by a human.** Cinder Delta was minted from a browser
+wallet rather than by this server:
+
+| | |
+|---|---|
+| Token | [`#2`](https://chainscan-galileo.0g.ai/token/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d?a=2) |
+| Owner | `0x71a89a7e692dAC4d6BD7c3f1cCa9155592d87BaE` |
+| Attestor (server) | `0x3bAf34DC64830eeCE76D4a351c0A72971f9c0Be0` |
+| Metadata | `0g://storage/0x9f1aaf227e…785f2fc` |
+| Transaction | [`0x72ded655…`](https://chainscan-galileo.0g.ai/tx/0x72ded6556391b2e001a0a954d168efb02e362f541bfcc28375404326eb1face2) · block 50390895 |
+
+The owner is not the attestor. That is the property worth checking: the server
+holds a key that can record a measurement and nothing else, and the identity
+belongs to the wallet that signed for it.
+
 **Gas.** Nine transactions in total — two deployments, three validation
 transactions and four anchored verdicts — for **0.015406 0G**, averaging
 0.001712 0G each. A mainnet deployment plus a first verdict therefore needs well
