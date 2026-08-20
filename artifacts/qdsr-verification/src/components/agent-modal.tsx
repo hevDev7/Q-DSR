@@ -19,6 +19,7 @@ import {
   shortHash,
 } from '../lib/format';
 import { MintPanel } from './mint-panel';
+import { AgenticIdBadge } from './agentic-id-badge';
 import { GhostButton, ModalShell, PrimaryButton, StatusBadge } from './primitives';
 
 export function AgentModal({
@@ -87,6 +88,7 @@ export function AgentModal({
                 {agent.name}
               </h2>
               <StatusBadge status={agent.status} />
+              {agent.tokenId && <AgenticIdBadge tokenId={agent.tokenId} size="md" />}
             </div>
             <div className="font-mono text-[10px] text-[#758278]">
               {agent.family} · owner {agent.owner}

@@ -1,6 +1,6 @@
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 
-import { QDSR_REGISTRY_ABI } from './abi.js';
+import { AGENTIC_ID_ABI, QDSR_REGISTRY_ABI } from './abi.js';
 import { networkForChainId, OG_MAINNET } from './networks.js';
 import {
   ChainNotConfiguredError,
@@ -30,12 +30,17 @@ export class DisabledChainClient implements ChainClient {
   async isCertified(): Promise<boolean> {
     return false;
   }
+
+  async tokenIdOf(): Promise<string | undefined> {
+    return undefined;
+  }
 }
 
 export class OgChainClient implements ChainClient {
   private readonly provider: JsonRpcProvider;
   private readonly wallet: Wallet;
   private readonly registry: Contract;
+  private readonly agenticId?: Contract;
   private readonly chainId: number;
   private readonly rpcUrl: string;
   private readonly registryAddress: string;
@@ -50,6 +55,9 @@ export class OgChainClient implements ChainClient {
     this.provider = new JsonRpcProvider(config.rpcUrl, this.chainId, { staticNetwork: true });
     this.wallet = new Wallet(config.privateKey, this.provider);
     this.registry = new Contract(config.registryAddress, QDSR_REGISTRY_ABI, this.wallet);
+    this.agenticId = config.agenticIdAddress
+      ? new Contract(config.agenticIdAddress, AGENTIC_ID_ABI, this.provider)
+      : undefined;
   }
 
   status(): ChainStatus {
@@ -92,6 +100,12 @@ export class OgChainClient implements ChainClient {
 
   async isCertified(agentId: string): Promise<boolean> {
     return Boolean(await this.registry.isCertified!(agentId));
+  }
+
+  async tokenIdOf(agentId: string): Promise<string | undefined> {
+    if (!this.agenticId) return undefined;
+    const tokenId = (await this.agenticId.tokenIdOfAgent!(agentId)) as bigint;
+    return tokenId === 0n ? undefined : tokenId.toString();
   }
 }
 

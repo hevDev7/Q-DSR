@@ -26,5 +26,11 @@ export interface Agent {
   createdAt: string;
   updatedAt: string;
   latestRunId?: string;
+  /**
+     * ERC-7857 Agentic ID token, read from the chain. Absent until the agent's
+     * owner mints one from their own wallet — this server never mints, so it
+     * cannot know otherwise.
+     */
+  tokenId?: string;
   metrics?: AgentMetrics;
 }

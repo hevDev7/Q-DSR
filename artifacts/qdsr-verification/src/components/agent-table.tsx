@@ -3,6 +3,7 @@ import { ArrowRight, ChevronDown, FileSearch, Search, SlidersHorizontal } from '
 import type { Agent, AgentStatus } from '@workspace/api-client-react';
 
 import { initials, integer, probability, ratio } from '../lib/format';
+import { AgenticIdBadge, AgenticIdRing } from './agentic-id-badge';
 import { EmptyState, SearchBar, StatusBadge } from './primitives';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -78,18 +79,26 @@ function AgentRow({ agent, onOpen }: { agent: Agent; onOpen: (id: string) => voi
       className={`grid w-full ${GRID} items-center gap-3 border-b border-[#202a2b] px-5 py-4 text-left last:border-0 hover:bg-[#151f20]`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold"
-          style={{
-            color: agent.accent,
-            borderColor: `${agent.accent}55`,
-            backgroundColor: `${agent.accent}0d`,
-          }}
-        >
-          {initials(agent.name)}
-        </div>
+        {(() => {
+          const avatar = (
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold"
+              style={{
+                color: agent.accent,
+                borderColor: `${agent.accent}55`,
+                backgroundColor: `${agent.accent}0d`,
+              }}
+            >
+              {initials(agent.name)}
+            </div>
+          );
+          return agent.tokenId ? <AgenticIdRing>{avatar}</AgenticIdRing> : avatar;
+        })()}
         <div className="min-w-0">
-          <div className="truncate text-[12px] font-bold text-[#dce7d6]">{agent.name}</div>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[12px] font-bold text-[#dce7d6]">{agent.name}</span>
+            {agent.tokenId && <AgenticIdBadge tokenId={agent.tokenId} />}
+          </div>
           <div className="mt-1 truncate font-mono text-[9px] text-[#69776d]">{agent.family}</div>
         </div>
       </div>

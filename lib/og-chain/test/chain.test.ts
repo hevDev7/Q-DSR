@@ -155,4 +155,8 @@ describe('DisabledChainClient', () => {
       ChainNotConfiguredError,
     );
   });
+
+  it('reports no minted token rather than guessing at one', async () => {
+    expect(await new DisabledChainClient().tokenIdOf()).toBeUndefined();
+  });
 });

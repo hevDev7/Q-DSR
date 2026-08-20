@@ -3,6 +3,8 @@ import { Plus } from 'lucide-react';
 
 import { useListAgents } from '@workspace/api-client-react';
 
+import { Fingerprint } from 'lucide-react';
+
 import { AgentFilters, AgentTable } from '../components/agent-table';
 import { PageIntro, Panel, PrimaryButton } from '../components/primitives';
 import { integer } from '../lib/format';
@@ -17,6 +19,7 @@ export function AgentsPage({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All');
   const { data: agents = [] } = useListAgents();
+  const minted = agents.filter((agent) => agent.tokenId).length;
 
   const filtered = useMemo(
     () =>
@@ -49,9 +52,18 @@ export function AgentsPage({
           <span>
             <span className="text-[#dce7d6]">{filtered.length}</span> of {agents.length} visible
           </span>
-          <span className="hidden items-center gap-2 sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#c8f169]" />
-            Live registry
+          <span
+            data-testid="text-minted-count"
+            title="Agents whose owner has minted an ERC-7857 Agentic ID on chain"
+            className="flex items-center gap-2"
+          >
+            <Fingerprint size={12} className={minted > 0 ? 'text-[#6fe0dc]' : 'text-[#4f5d55]'} />
+            <span className={minted > 0 ? 'text-[#81e6e0]' : 'text-[#5c6a61]'}>
+              {integer(minted)}
+            </span>
+            <span className="hidden sm:inline">
+              {minted === 1 ? 'holds an Agentic ID' : 'hold an Agentic ID'}
+            </span>
           </span>
         </div>
         <AgentTable

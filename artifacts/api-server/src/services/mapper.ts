@@ -77,6 +77,8 @@ export function toAgentDto(
   agent: AgentRecord,
   latestRun?: RunRecord,
   anchor?: AnchorRecord,
+  /** ERC-7857 token id, read from the chain. Absent when nothing has been minted. */
+  tokenId?: string,
 ): Record<string, unknown> {
   const result = latestRun?.result;
   return {
@@ -91,6 +93,7 @@ export function toAgentDto(
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
     latestRunId: agent.latestRunId,
+    tokenId,
     metrics: result
       ? {
           dsr: result.dsr,

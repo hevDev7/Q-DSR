@@ -422,6 +422,12 @@ components:
           type: string
         latestRunId:
           type: string
+        tokenId:
+          type: string
+          description: |
+            ERC-7857 Agentic ID token, read from the chain. Absent until the agent's
+            owner mints one from their own wallet — this server never mints, so it
+            cannot know otherwise.
         metrics:
           $ref: "#/components/schemas/AgentMetrics"
       required:

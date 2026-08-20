@@ -6,6 +6,7 @@ import { loadConfig, type AppConfig } from './config.js';
 import { newId } from './lib/ids.js';
 import { logger } from './lib/logger.js';
 import { AnchorService } from './services/anchor.js';
+import { MintLookup } from './services/mint-lookup.js';
 import { VerificationService } from './services/verification.js';
 import { createStore, type Store } from './store/index.js';
 
@@ -17,6 +18,7 @@ export interface AppContext {
   chain: ChainClient;
   verification: VerificationService;
   anchoring: AnchorService;
+  mintLookup: MintLookup;
   engineVersion: string;
   deriveAgentId: typeof deriveAgentId;
   audit(event: {
@@ -58,6 +60,7 @@ export async function createContext(): Promise<AppContext> {
 
   const verification = new VerificationService(store, config.defaults, audit);
   const anchoring = new AnchorService(store, storage, chain, audit);
+  const mintLookup = new MintLookup(chain);
 
   const chainStatus = chain.status();
   logger.info(
@@ -79,6 +82,7 @@ export async function createContext(): Promise<AppContext> {
     chain,
     verification,
     anchoring,
+    mintLookup,
     engineVersion: ENGINE_VERSION,
     deriveAgentId,
     audit,

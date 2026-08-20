@@ -43,6 +43,7 @@ export const ListAgentsResponseItem = zod.object({
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
+  "tokenId": zod.string().optional().describe('ERC-7857 Agentic ID token, read from the chain. Absent until the agent\'s\nowner mints one from their own wallet — this server never mints, so it\ncannot know otherwise.\n'),
   "metrics": zod.object({
   "dsr": zod.number(),
   "pbo": zod.number(),
@@ -79,6 +80,7 @@ export const CreateAgentResponse = zod.object({
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
+  "tokenId": zod.string().optional().describe('ERC-7857 Agentic ID token, read from the chain. Absent until the agent\'s\nowner mints one from their own wallet — this server never mints, so it\ncannot know otherwise.\n'),
   "metrics": zod.object({
   "dsr": zod.number(),
   "pbo": zod.number(),
@@ -111,6 +113,7 @@ export const GetAgentResponse = zod.object({
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
+  "tokenId": zod.string().optional().describe('ERC-7857 Agentic ID token, read from the chain. Absent until the agent\'s\nowner mints one from their own wallet — this server never mints, so it\ncannot know otherwise.\n'),
   "metrics": zod.object({
   "dsr": zod.number(),
   "pbo": zod.number(),

@@ -35,6 +35,14 @@ export interface ChainClient {
   status(): ChainStatus;
   submitVerdict(submission: VerdictSubmission): Promise<AnchorReceipt>;
   isCertified(agentId: string): Promise<boolean>;
+  /**
+   * The Agentic ID minted for an agent, or undefined if none exists.
+   *
+   * Read from the chain rather than tracked here, because minting happens in the
+   * developer's wallet — this server never sees the transaction and could not
+   * know about it otherwise.
+   */
+  tokenIdOf(agentId: string): Promise<string | undefined>;
 }
 
 export interface ChainConfig {

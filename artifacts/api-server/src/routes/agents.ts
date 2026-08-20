@@ -14,19 +14,25 @@ export function agentsRouter(ctx: AppContext): IRouter {
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search.toLowerCase() : undefined;
 
+    const visible = agents
+      .filter((agent) => (status ? agent.status === status : true))
+      .filter((agent) =>
+        search
+          ? `${agent.name} ${agent.family} ${agent.owner}`.toLowerCase().includes(search)
+          : true,
+      );
+
+    // One concurrent pass over the chain for the whole page; the lookup caches a
+    // token id permanently once it sees one, so this is a single round trip per
+    // agent at most, and usually none.
+    const tokenIds = await ctx.mintLookup.tokenIdsOf(visible.map((agent) => agent.agentId));
+
     const payload = await Promise.all(
-      agents
-        .filter((agent) => (status ? agent.status === status : true))
-        .filter((agent) =>
-          search
-            ? `${agent.name} ${agent.family} ${agent.owner}`.toLowerCase().includes(search)
-            : true,
-        )
-        .map(async (agent) => {
-          const run = agent.latestRunId ? await ctx.store.getRun(agent.latestRunId) : undefined;
-          const anchor = run ? await ctx.store.getAnchor(run.id) : undefined;
-          return toAgentDto(agent, run, anchor);
-        }),
+      visible.map(async (agent) => {
+        const run = agent.latestRunId ? await ctx.store.getRun(agent.latestRunId) : undefined;
+        const anchor = run ? await ctx.store.getAnchor(run.id) : undefined;
+        return toAgentDto(agent, run, anchor, tokenIds.get(agent.agentId));
+      }),
     );
 
     res.json(payload);
@@ -104,7 +110,8 @@ export function agentsRouter(ctx: AppContext): IRouter {
       runs.map(async (run) => toRunDto(run, agent, await ctx.store.getAnchor(run.id))),
     );
 
-    res.json({ ...toAgentDto(agent, latest, anchor), runs: runDtos });
+    const tokenId = await ctx.mintLookup.tokenIdOf(agent.agentId);
+    res.json({ ...toAgentDto(agent, latest, anchor, tokenId), runs: runDtos });
   });
 
   router.get('/agents/:agentId/mint-intent', async (req, res) => {
@@ -116,6 +123,10 @@ export function agentsRouter(ctx: AppContext): IRouter {
 
     const run = agent.latestRunId ? await ctx.store.getRun(agent.latestRunId) : undefined;
     const anchor = run ? await ctx.store.getAnchor(run.id) : undefined;
+
+    // Someone asking whether they can mint is often about to; drop any cached
+    // "no token yet" so the next list reflects the result immediately.
+    ctx.mintLookup.forget(agent.agentId);
 
     res.json(buildMintIntent({ agent, run, anchor, chain: ctx.chain.status() }));
   });
