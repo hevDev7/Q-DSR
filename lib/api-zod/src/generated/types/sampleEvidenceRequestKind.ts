@@ -11,6 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type SampleEvidenceRequestKind = typeof SampleEvidenceRequestKind[keyof typeof SampleEvidenceRequestKind];
+
+
+export const SampleEvidenceRequestKind = {
+  overfit: 'overfit',
+  genuine: 'genuine',
+} as const;

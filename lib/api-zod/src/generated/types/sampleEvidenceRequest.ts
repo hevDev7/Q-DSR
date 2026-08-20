@@ -10,7 +10,11 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { SampleEvidenceRequestKind } from './sampleEvidenceRequestKind';
 
-export interface HealthStatus {
-  status: string;
+export interface SampleEvidenceRequest {
+  kind: SampleEvidenceRequestKind;
+  observations?: number;
+  trials?: number;
+  seed?: number;
 }

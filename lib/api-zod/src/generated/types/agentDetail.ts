@@ -10,7 +10,9 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { Agent } from './agent';
+import type { Run } from './run';
 
-export interface HealthStatus {
-  status: string;
-}
+export type AgentDetail = Agent & {
+  runs: Run[];
+};

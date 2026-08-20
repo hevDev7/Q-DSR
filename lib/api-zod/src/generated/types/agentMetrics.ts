@@ -10,7 +10,19 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { AnchorStatus } from './anchorStatus';
+import type { Verdict } from './verdict';
 
-export interface HealthStatus {
-  status: string;
+/**
+ * Headline numbers from the agent's most recent completed run.
+ */
+export interface AgentMetrics {
+  dsr: number;
+  pbo: number;
+  sharpe: number;
+  sharpeAnnualised: number;
+  observations: number;
+  trials: number;
+  verdict: Verdict;
+  anchorStatus: AnchorStatus;
 }

@@ -11,6 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type GateOutcomeComparison = typeof GateOutcomeComparison[keyof typeof GateOutcomeComparison];
+
+
+export const GateOutcomeComparison = {
+  gte: 'gte',
+  lte: 'lte',
+} as const;

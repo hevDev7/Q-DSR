@@ -11,6 +11,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type PhaseTimingPhase = typeof PhaseTimingPhase[keyof typeof PhaseTimingPhase];
+
+
+export const PhaseTimingPhase = {
+  validating: 'validating',
+  fingerprinting: 'fingerprinting',
+  cscv: 'cscv',
+  bootstrap: 'bootstrap',
+  sealing: 'sealing',
+} as const;

@@ -11,6 +11,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface CreateAgentRequest {
+  name: string;
+  family: string;
+  owner: string;
+  periodsPerYear?: number;
 }

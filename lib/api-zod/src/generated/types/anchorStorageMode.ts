@@ -11,6 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type AnchorStorageMode = typeof AnchorStorageMode[keyof typeof AnchorStorageMode];
+
+
+export const AnchorStorageMode = {
+  live: 'live',
+  local: 'local',
+} as const;

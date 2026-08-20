@@ -10,7 +10,12 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { GateOutcomeComparison } from './gateOutcomeComparison';
 
-export interface HealthStatus {
-  status: string;
+export interface GateOutcome {
+  gate: string;
+  passed: boolean;
+  observed: number;
+  required: number;
+  comparison: GateOutcomeComparison;
 }

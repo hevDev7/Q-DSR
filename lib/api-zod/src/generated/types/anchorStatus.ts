@@ -11,6 +11,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type AnchorStatus = typeof AnchorStatus[keyof typeof AnchorStatus];
+
+
+export const AnchorStatus = {
+  none: 'none',
+  pending: 'pending',
+  anchored: 'anchored',
+  failed: 'failed',
+} as const;

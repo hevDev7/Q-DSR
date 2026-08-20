@@ -11,6 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type ChainConfigStorageMode = typeof ChainConfigStorageMode[keyof typeof ChainConfigStorageMode];
+
+
+export const ChainConfigStorageMode = {
+  live: 'live',
+  local: 'local',
+} as const;

@@ -11,6 +11,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface FleetStats {
+  total: number;
+  certified: number;
+  insignificant: number;
+  unverified: number;
+  verifying: number;
+  medianDsr?: number | null;
+  medianPbo?: number | null;
+  anchored: number;
+  totalRuns: number;
 }

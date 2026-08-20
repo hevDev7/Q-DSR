@@ -11,6 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type Verdict = typeof Verdict[keyof typeof Verdict];
+
+
+export const Verdict = {
+  certified: 'certified',
+  insignificant: 'insignificant',
+} as const;

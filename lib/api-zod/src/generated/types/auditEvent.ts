@@ -10,7 +10,13 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { AuditEventTone } from './auditEventTone';
 
-export interface HealthStatus {
-  status: string;
+export interface AuditEvent {
+  id: string;
+  actor: string;
+  action: string;
+  detail: string;
+  tone: AuditEventTone;
+  createdAt: string;
 }

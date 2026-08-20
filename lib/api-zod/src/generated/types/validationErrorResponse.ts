@@ -10,7 +10,9 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { ApiError } from './apiError';
 
-export interface HealthStatus {
-  status: string;
-}
+/**
+ * The submission cannot support a meaningful verdict
+ */
+export type ValidationErrorResponse = ApiError;

@@ -10,7 +10,9 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { ApiError } from './apiError';
 
-export interface HealthStatus {
-  status: string;
-}
+/**
+ * Not found
+ */
+export type NotFoundResponse = ApiError;

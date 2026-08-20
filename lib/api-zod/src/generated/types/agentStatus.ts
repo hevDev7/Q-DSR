@@ -11,6 +11,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type AgentStatus = typeof AgentStatus[keyof typeof AgentStatus];
+
+
+export const AgentStatus = {
+  unverified: 'unverified',
+  verifying: 'verifying',
+  certified: 'certified',
+  insignificant: 'insignificant',
+  failed: 'failed',
+} as const;

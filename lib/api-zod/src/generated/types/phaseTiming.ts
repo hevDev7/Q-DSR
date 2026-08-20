@@ -10,7 +10,13 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { PhaseTimingPhase } from './phaseTimingPhase';
 
-export interface HealthStatus {
-  status: string;
+/**
+ * Measured duration of one engine stage.
+ */
+export interface PhaseTiming {
+  phase: PhaseTimingPhase;
+  label: string;
+  elapsedMs: number;
 }

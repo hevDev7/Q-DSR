@@ -10,7 +10,9 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { AgentStatus } from './agentStatus';
 
-export interface HealthStatus {
-  status: string;
-}
+export type ListAgentsParams = {
+status?: AgentStatus;
+search?: string;
+};

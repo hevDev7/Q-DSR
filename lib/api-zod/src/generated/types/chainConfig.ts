@@ -10,7 +10,16 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { ChainConfigStorageMode } from './chainConfigStorageMode';
 
-export interface HealthStatus {
-  status: string;
+export interface ChainConfig {
+  configured: boolean;
+  chainId?: number;
+  networkName: string;
+  explorerBaseUrl?: string;
+  registryAddress?: string;
+  agenticIdAddress?: string;
+  attestorAddress?: string;
+  storageMode: ChainConfigStorageMode;
+  engineVersion: string;
 }

@@ -11,6 +11,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type AuditEventTone = typeof AuditEventTone[keyof typeof AuditEventTone];
+
+
+export const AuditEventTone = {
+  good: 'good',
+  bad: 'bad',
+  warn: 'warn',
+  cyan: 'cyan',
+  neutral: 'neutral',
+} as const;

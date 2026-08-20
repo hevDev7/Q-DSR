@@ -11,6 +11,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface BootstrapSummary {
+  iterations: number;
+  blockSize: number;
+  meanSharpe: number;
+  stdSharpe: number;
+  ci95Low: number;
+  ci95High: number;
+  probabilityPositive: number;
 }

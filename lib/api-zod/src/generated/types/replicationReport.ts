@@ -11,6 +11,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface ReplicationReport {
+  runId: string;
+  reproduced: boolean;
+  anchoredDigest: string;
+  recomputedDigest: string;
+  engineVersion: string;
+  elapsedMs: number;
+  note?: string;
 }
