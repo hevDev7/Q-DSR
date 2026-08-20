@@ -212,14 +212,12 @@ export const StartVerificationParams = zod.object({
   "agentId": zod.coerce.string()
 })
 
+export const startVerificationBodyEvidenceRootRegExp = new RegExp('^0x[0-9a-fA-F]{64}$');
+
+
 export const StartVerificationBody = zod.object({
-  "returnsCsv": zod.string().describe('CSV with a timestamp column and a return column.'),
-  "trialsCsv": zod.string().describe('CSV matrix, one column per configuration explored during optimisation.\nRequired — PBO is meaningless without the full search space.\n'),
-  "selectedColumn": zod.string().optional().describe('Column name in trialsCsv corresponding to the submitted series.'),
-  "seed": zod.number().optional(),
-  "bootstrapIterations": zod.number().optional(),
-  "cscvSplits": zod.number().optional()
-})
+  "evidenceRoot": zod.string().regex(startVerificationBodyEvidenceRootRegExp).describe('0G Storage merkle root of a JSON document shaped\n`{ agent: { name, periodsPerYear }, evidence: { returnsCsv, trialsCsv, selectedColumn } }`.\ntrialsCsv is mandatory — PBO is meaningless without the full search space.\n')
+}).describe('A 0G Storage address, not a bundle.\n\nThe claimant publishes their own evidence and funds it; the attestor is\nhanded only the root. It downloads those bytes, re-derives the root, and\nrefuses if they disagree — so a submission cannot name one bundle on\nchain while being measured against another.\n\nThe measurement parameters are deliberately absent. cscvSplits decides\nhow PBO is computed, so a claimant able to choose it would be choosing\nhow their own claim is tested. The attestor pins seed, splits, bootstrap\niterations and engine version.\n')
 
 export const StartVerificationResponse = zod.object({
   "id": zod.string(),
@@ -623,6 +621,7 @@ export const GetChainConfigResponse = zod.object({
   "agenticIdAddress": zod.string().optional(),
   "attestorAddress": zod.string().optional(),
   "storageMode": zod.enum(['live', 'local']),
+  "storageIndexerRpc": zod.string().optional().describe('0G Storage indexer the browser publishes evidence through. Sent by the\nserver so the claimant and the attestor address the same network.\n'),
   "engineVersion": zod.string()
 })
 

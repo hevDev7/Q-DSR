@@ -12,5 +12,8 @@
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "@workspace/og-storage": "workspace:*"
+  },
+  "dependencies": {
+    "@workspace/og-storage": "workspace:*"
   }
 }

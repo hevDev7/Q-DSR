@@ -16,7 +16,52 @@
  *   pnpm --filter @workspace/scripts exec tsx src/seed-demo.ts
  */
 
+import { createEvidenceStorage, type EvidenceStorage } from '@workspace/og-storage';
+
 const API = process.env.QDSR_API_URL ?? 'http://127.0.0.1:8080/api';
+
+/**
+ * The script plays the claimant, and pays like one.
+ *
+ * Evidence is published by whoever is making the claim — that is the whole point
+ * of the arrangement — so this seeder publishes its own bundles rather than
+ * handing CSVs to the server, which no longer accepts them. In a browser the
+ * signer is the user's wallet; here it is a key from the environment.
+ *
+ * Without OG_PRIVATE_KEY this falls back to local storage, which still produces
+ * a genuine 0G content address. The verdict anchors against a root nobody else
+ * can fetch, which is worth knowing but fine for a local demo.
+ */
+let storage: EvidenceStorage | undefined;
+
+async function publisher(): Promise<EvidenceStorage> {
+  storage ??= await createEvidenceStorage({
+    indexerRpc: process.env.OG_STORAGE_INDEXER_RPC,
+    evmRpc: process.env.OG_STORAGE_EVM_RPC ?? process.env.OG_RPC_URL,
+    privateKey: process.env.OG_STORAGE_PRIVATE_KEY ?? process.env.OG_PRIVATE_KEY,
+    cacheDir: process.env.QDSR_SEED_CACHE ?? '.data/seed-storage',
+  });
+  return storage;
+}
+
+async function publishEvidence(
+  agentName: string,
+  sample: Sample,
+  periodsPerYear = 252,
+): Promise<string> {
+  const bytes = new TextEncoder().encode(
+    JSON.stringify({
+      agent: { name: agentName, periodsPerYear },
+      evidence: {
+        returnsCsv: sample.returnsCsv,
+        trialsCsv: sample.trialsCsv,
+        selectedColumn: sample.selectedColumn,
+      },
+    }),
+  );
+  const { rootHash } = await (await publisher()).upload(bytes, 'evidence.json');
+  return rootHash;
+}
 
 interface Agent {
   id: string;
@@ -83,11 +128,8 @@ async function main(): Promise<void> {
       ...('observations' in spec ? { observations: spec.observations } : {}),
     });
 
-    const started = await call<Run>(`/agents/${agent.id}/verify`, {
-      returnsCsv: sample.returnsCsv,
-      trialsCsv: sample.trialsCsv,
-      selectedColumn: sample.selectedColumn,
-    });
+    const evidenceRoot = await publishEvidence(spec.name, sample);
+    const started = await call<Run>(`/agents/${agent.id}/verify`, { evidenceRoot });
 
     let run = started;
     for (let attempt = 0; attempt < 100 && run.status !== 'completed' && run.status !== 'failed'; attempt++) {
@@ -95,8 +137,8 @@ async function main(): Promise<void> {
       run = await call<Run>(`/runs/${started.id}`);
     }
 
-    // Anchoring is expected to fail without chain credentials; the evidence root
-    // is still computed and recorded, which is the part worth demonstrating.
+    // Anchoring is expected to fail without chain credentials; the evidence is
+    // already published either way, which is the part worth demonstrating.
     await call(`/runs/${started.id}/anchor`, {}).catch(() => undefined);
 
     const result = run.result;

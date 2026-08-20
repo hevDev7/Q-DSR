@@ -224,19 +224,27 @@ export type AgentDetail = Agent & {
   runs: Run[];
 };
 
+/**
+ * A 0G Storage address, not a bundle.
+ *
+ * The claimant publishes their own evidence and funds it; the attestor is
+ * handed only the root. It downloads those bytes, re-derives the root, and
+ * refuses if they disagree — so a submission cannot name one bundle on
+ * chain while being measured against another.
+ *
+ * The measurement parameters are deliberately absent. cscvSplits decides
+ * how PBO is computed, so a claimant able to choose it would be choosing
+ * how their own claim is tested. The attestor pins seed, splits, bootstrap
+ * iterations and engine version.
+ */
 export interface VerificationRequest {
-  /** CSV with a timestamp column and a return column. */
-  returnsCsv: string;
   /**
-     * CSV matrix, one column per configuration explored during optimisation.
-     * Required — PBO is meaningless without the full search space.
+     * 0G Storage merkle root of a JSON document shaped
+     * `{ agent: { name, periodsPerYear }, evidence: { returnsCsv, trialsCsv, selectedColumn } }`.
+     * trialsCsv is mandatory — PBO is meaningless without the full search space.
+     * @pattern ^0x[0-9a-fA-F]{64}$
      */
-  trialsCsv: string;
-  /** Column name in trialsCsv corresponding to the submitted series. */
-  selectedColumn?: string;
-  seed?: number;
-  bootstrapIterations?: number;
-  cscvSplits?: number;
+  evidenceRoot: string;
 }
 
 export interface UploadImageRequest {
@@ -377,6 +385,11 @@ export interface ChainConfig {
   agenticIdAddress?: string;
   attestorAddress?: string;
   storageMode: ChainConfigStorageMode;
+  /**
+     * 0G Storage indexer the browser publishes evidence through. Sent by the
+     * server so the claimant and the attestor address the same network.
+     */
+  storageIndexerRpc?: string;
   engineVersion: string;
 }
 

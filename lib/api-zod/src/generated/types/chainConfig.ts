@@ -22,5 +22,10 @@ export interface ChainConfig {
   agenticIdAddress?: string;
   attestorAddress?: string;
   storageMode: ChainConfigStorageMode;
+  /**
+     * 0G Storage indexer the browser publishes evidence through. Sent by the
+     * server so the claimant and the attestor address the same network.
+     */
+  storageIndexerRpc?: string;
   engineVersion: string;
 }
