@@ -38,7 +38,7 @@ verdict is recorded.
 | On-chain `isCertified` matches the engine verdict | ✅ true / false |
 | Mint gate | ✅ ALLOWED / `AgentNotCertified` |
 
-The API sent measurements only — `dsrBps 9982, pboBps 4` and `dsrBps 4889,
+The API sent measurements only — `dsrBps 9999, pboBps 0` and `dsrBps 4889,
 pboBps 5041`. The contract derived both verdicts itself.
 
 To repeat the API half:
@@ -185,10 +185,20 @@ metrics it was sent:**
 
 | Agent | DSR / PBO (bps) | On-chain verdict | Transaction |
 |---|---|---|---|
-| Cinder Delta | 9982 / 4 | **certified** | [`0x8ffc2611…`](https://chainscan-galileo.0g.ai/tx/0x8ffc26116f67c5ede09f209ccb914f0d98a7cc22e07d2e01a3a3dbc213c287fa) |
-| Vega Lantern | 9369 / 1061 | not certified | [`0xb7f78595…`](https://chainscan-galileo.0g.ai/tx/0xb7f785957868297e5838d196c1c76bcfab9df1714c35dbfa2a892b8bc04ded73) |
-| Orbital Carry | 4725 / 3166 | not certified | [`0x5c2bac30…`](https://chainscan-galileo.0g.ai/tx/0x5c2bac30299abc34a27db7044d586862edb45724f415e6a694dd093143f6f974) |
-| Juniper Flow | 4889 / 5041 | not certified | [`0xa50e6309…`](https://chainscan-galileo.0g.ai/tx/0xa50e6309b51db2a9186ae4c5da352c436d1d5ece0b2de9385db6b5d71fdb0547) |
+| Cinder Delta | 9999 / 0 | **certified** | [`0xf5abadc3…`](https://chainscan-galileo.0g.ai/tx/0xf5abadc34c46d00e2d61fa213a49658f78e6a456e5ef8f2a13e975a46b0a8d61) |
+| Vega Lantern | 9369 / 1061 | not certified | [`0x923d96a0…`](https://chainscan-galileo.0g.ai/tx/0x923d96a077ed64ebddf96295c01b2c2a44fdd8f874d7c2c39f156dc7e41cfa15) |
+| Orbital Carry | 4725 / 3166 | not certified | [`0x4d8d92eb…`](https://chainscan-galileo.0g.ai/tx/0x4d8d92eb28c558e92f5dcf375d8ee1e75090961fb85cef06dd266c9c023274ce) |
+| Juniper Flow | 4889 / 5041 | not certified | [`0xd3e3c7b9…`](https://chainscan-galileo.0g.ai/tx/0xd3e3c7b9849edc0ae42648f320c9470392ed75fafebbd07d959a27c3ec557a06) |
+
+Reproduced from the same seeds against the new contracts. Vega Lantern, Orbital
+Carry and Juniper Flow came back bit-identical to the pre-audit deployment, which
+is the determinism claim doing its job rather than being asserted.
+
+Cinder Delta moved, from 9982 / 4 to 9999 / 0. It is the one agent in the fleet
+that does not pin its observation count, so it picks up the default — raised from
+756 to 1512 when the sample generator was fixed. Six years of history instead of
+three, same seed, same engine. A longer record on a real edge is supposed to
+score higher; if it had not moved, that would have been the thing to explain.
 
 Vega Lantern is the one to look at. It missed on both gates — DSR 0.9369 against
 0.95, PBO 0.1061 against 0.10 — and the contract refused it anyway. A real edge

@@ -26,10 +26,19 @@ with the best in-sample Sharpe ratio — exactly what a naive optimiser does:
 
 | | Overfit sample | Genuine edge |
 |---|---|---|
-| Annualised Sharpe | **1.24** | 3.37 |
-| Deflated Sharpe Ratio | **0.4889** ❌ | 0.9982 ✅ |
-| Probability of Backtest Overfitting | **0.5041** ❌ | 0.0004 ✅ |
+| Observations | 756 | 1512 |
+| Configurations tested | 60 | 60 |
+| Annualised Sharpe | **1.24** | 3.01 |
+| Deflated Sharpe Ratio | **0.4889** ❌ | 0.9999 ✅ |
+| Probability of Backtest Overfitting | **0.5041** ❌ | 0.0000 ✅ |
 | Verdict | **Statistically insignificant** | Certified |
+
+The record lengths differ on purpose, and DSR is sensitive to that — three years
+against six. The controlled version of this comparison is on the testnet: an agent
+called Vega Lantern, the same kind of genuine edge as the right-hand column but
+held to three years, [scores 0.9369 and is
+refused](docs/DEPLOYMENT.md#completed-on-2026-08-20). A real edge that is not yet
+provable at this sample size is still not provable.
 
 Pure noise advertises a **1.24 annualised Sharpe ratio**. Its PBO is 0.5041 —
 almost exactly one half, the textbook signature of a selection process carrying
@@ -84,7 +93,7 @@ anything. The answer comes back in the contract's own vocabulary:
 
 | Agent | The contract says |
 |---|---|
-| Certified (DSR 0.9982, PBO 0.0004) | *The contract would accept this mint.* |
+| Certified (DSR 0.9999, PBO 0.0000) | *The contract would accept this mint.* |
 | Insignificant (DSR 0.4889, PBO 0.5041) | *`AgentNotCertified` — the registry holds no passing verdict for this agent.* |
 
 That refusal is a read-only `staticCall` against the real chain, not a disabled
