@@ -39,10 +39,13 @@ async function main(): Promise<void> {
   const agenticAddress = await agentic.getAddress();
   console.log(`  AgenticID     ${agenticAddress}`);
 
-  const explorer =
-    network.config.chainId === 16661
-      ? 'https://chainscan.0g.ai'
-      : 'https://chainscan-galileo.0g.ai';
+  // Only the 0G networks have an explorer. A local node must not be handed a
+  // Galileo link — a wrong link is worse than no link, because it looks checked.
+  const EXPLORERS: Record<number, string> = {
+    16661: 'https://chainscan.0g.ai',
+    16602: 'https://chainscan-galileo.0g.ai',
+  };
+  const explorer = EXPLORERS[network.config.chainId ?? 0];
 
   const record = {
     network: network.name,
@@ -54,10 +57,12 @@ async function main(): Promise<void> {
       QDSRRegistry: registryAddress,
       AgenticID: agenticAddress,
     },
-    explorer: {
-      QDSRRegistry: `${explorer}/address/${registryAddress}`,
-      AgenticID: `${explorer}/address/${agenticAddress}`,
-    },
+    explorer: explorer
+      ? {
+          QDSRRegistry: `${explorer}/address/${registryAddress}`,
+          AgenticID: `${explorer}/address/${agenticAddress}`,
+        }
+      : undefined,
   };
 
   const outPath = resolve(__dirname, '..', 'deployments', `${network.name}.json`);
@@ -65,7 +70,15 @@ async function main(): Promise<void> {
   writeFileSync(outPath, `${JSON.stringify(record, null, 2)}\n`, 'utf8');
 
   console.log(`\nwrote ${outPath}`);
-  console.log(`\nexplorer:\n  ${record.explorer.QDSRRegistry}\n  ${record.explorer.AgenticID}`);
+  if (record.explorer) {
+    console.log(`\nexplorer:\n  ${record.explorer.QDSRRegistry}\n  ${record.explorer.AgenticID}`);
+  } else {
+    console.log(`\nno block explorer for chain ${network.config.chainId}`);
+  }
+
+  console.log(
+    `\nnext:\n  pnpm --filter @workspace/contracts run validate:${network.name === 'ogMainnet' ? 'mainnet' : network.name === 'ogTestnet' ? 'testnet' : 'local'}`,
+  );
 }
 
 main().catch((error) => {
