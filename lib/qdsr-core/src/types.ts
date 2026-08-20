@@ -63,6 +63,72 @@ export interface VerifyOptions {
   /** S for CSCV. Must be even. */
   cscvSplits?: number;
   thresholds?: Partial<Thresholds>;
+  /**
+   * Overrides for the intake plausibility layer. The defaults are tuned so a
+   * genuine daily trading record (Sharpe ~0.5–4, some losing periods, low serial
+   * correlation) passes untouched; see `PLAUSIBILITY_DEFAULTS`. Set individual
+   * fields to widen or tighten a check without disabling the rest.
+   */
+  plausibility?: Partial<PlausibilityThresholds>;
+}
+
+/**
+ * A non-fatal caution surfaced beside a verdict.
+ *
+ * The upload was accepted and measured, but a property of it is unusual enough
+ * that a human should see it — an extreme Sharpe just under the reject wall,
+ * heavy tails, an implausibly high hit-rate. Warnings never change the verdict
+ * and never feed the reproducibility digest; they are advisory metadata.
+ */
+export interface PlausibilityWarning {
+  /** Stable machine code, e.g. 'sharpe-high', 'serial-correlation', 'fat-tails'. */
+  code: string;
+  /** Human-readable explanation, safe to show on a certificate. */
+  message: string;
+  /** The observed value that triggered the warning. */
+  value: number;
+}
+
+/**
+ * Thresholds for the intake plausibility layer.
+ *
+ * Every bound is chosen to sit outside the documented range of genuine daily
+ * trading records, so an honest strategy never trips a hard reject. See
+ * `PLAUSIBILITY_DEFAULTS` for the values and the reasoning behind each.
+ */
+export interface PlausibilityThresholds {
+  /** Hard-reject an annualised Sharpe above this — physically implausible for a daily record. */
+  maxAnnualisedSharpe: number;
+  /** Warn (do not reject) an annualised Sharpe above this. */
+  warnAnnualisedSharpe: number;
+  /** Hard-reject when the mean per-period return exceeds this in magnitude (levels, not returns). */
+  maxAbsMeanReturn: number;
+  /** Hard-reject when the 95th percentile of |return| exceeds this (percent/bps/level scale). */
+  maxP95AbsReturn: number;
+  /** Hard-reject a per-period standard deviation below this — a flat series is not a record. */
+  minStdReturn: number;
+  /** Hard-reject lag-1 autocorrelation above this — a running level, not period returns. */
+  maxLag1Autocorr: number;
+  /** Warn on |lag-1 autocorrelation| above this. */
+  warnLag1Autocorr: number;
+  /** Hard-reject when fewer than this many periods are active (non-zero). */
+  minActivePeriods: number;
+  /** Warn when the fraction of exactly-zero periods exceeds this. */
+  warnZeroFraction: number;
+  /** Hard-reject when the series takes this many or fewer distinct values (at full length). */
+  maxRejectDistinctValues: number;
+  /** Two standardised trials columns correlated above this are the same configuration. */
+  duplicateColumnCorrelation: number;
+  /** Hard-reject when more than this fraction of declared columns duplicate another. */
+  maxDuplicateColumnFraction: number;
+  /** Warn on absolute skewness above this. */
+  warnAbsSkewness: number;
+  /** Warn on (non-excess) kurtosis above this. */
+  warnKurtosis: number;
+  /** Warn on a positive-period hit-rate above this. */
+  warnHitRate: number;
+  /** Warn when the fraction of losing periods is below this (implausibly consistent). */
+  warnMinNegativeFraction: number;
 }
 
 export type Verdict = 'certified' | 'insignificant';
@@ -120,6 +186,12 @@ export interface VerificationResult {
   timings: PhaseTiming[];
   /** Total wall-clock time of the run. */
   elapsedMs: number;
+
+  /**
+   * Non-fatal cautions from the intake plausibility layer. Empty for a clean
+   * bundle. Advisory only — they do not affect the verdict or the digest.
+   */
+  warnings: PlausibilityWarning[];
 
   /** SHA-256 over the canonical numeric result — the reproducibility fingerprint. */
   digest: string;

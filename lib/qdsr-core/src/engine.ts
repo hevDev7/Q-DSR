@@ -10,6 +10,8 @@
 import { createHash } from 'node:crypto';
 
 import { circularBlockBootstrap, defaultBlockSize } from './bootstrap.js';
+import { EvidenceValidationError } from './errors.js';
+import { assertHonestSearchSpace, checkReturnsPlausibility } from './plausibility.js';
 import {
   deflatedSharpeRatio,
   expectedMaxSharpe,
@@ -34,6 +36,8 @@ import {
   type VerifyPhase,
 } from './types.js';
 
+export { EvidenceValidationError } from './errors.js';
+
 const PHASE_LABELS: Record<VerifyPhase, string> = {
   validating: 'Validating evidence bundle',
   fingerprinting: 'Fingerprinting return series',
@@ -48,15 +52,6 @@ const PHASE_LABELS: Record<VerifyPhase, string> = {
  * re-running an old verdict must be able to pin the exact engine that produced it.
  */
 export const ENGINE_VERSION = 'qdsr-core/1.0.0';
-
-export class EvidenceValidationError extends Error {
-  readonly field: string;
-  constructor(field: string, message: string) {
-    super(message);
-    this.name = 'EvidenceValidationError';
-    this.field = field;
-  }
-}
 
 /** Relative tolerance when matching the submitted series against a trials column. */
 const SERIES_MATCH_TOLERANCE = 1e-9;
@@ -94,7 +89,11 @@ function findSelectedTrial(
   return -1;
 }
 
-function validate(bundle: EvidenceBundle, thresholds: Thresholds): void {
+function validate(
+  bundle: EvidenceBundle,
+  thresholds: Thresholds,
+  plausibility: VerifyOptions['plausibility'],
+): void {
   const { returns, trials, timestamps, manifest } = bundle;
 
   if (!Array.isArray(returns) || returns.length === 0) {
@@ -153,6 +152,11 @@ function validate(bundle: EvidenceBundle, thresholds: Thresholds): void {
   if (!Number.isFinite(manifest.periodsPerYear) || manifest.periodsPerYear <= 0) {
     throw new EvidenceValidationError('manifest.periodsPerYear', 'must be a positive number');
   }
+
+  // The declared search space must be genuinely distinct configurations. Copies
+  // or scalings of one survivor collapse the DSR deflation and PBO to nothing and
+  // certify an unproven edge — the most damaging hole the adversarial sweep found.
+  assertHonestSearchSpace(trials, thresholds.minTrials, plausibility);
 }
 
 /** Canonical serialisation of the numeric result — the reproducibility fingerprint. */
@@ -205,7 +209,7 @@ export function verify(bundle: EvidenceBundle, options: VerifyOptions = {}): Ver
     options.onPhase?.(timing);
   };
 
-  validate(bundle, thresholds);
+  validate(bundle, thresholds, options.plausibility);
   mark('validating');
 
   const { returns, trials, manifest } = bundle;
@@ -226,6 +230,12 @@ export function verify(bundle: EvidenceBundle, options: VerifyOptions = {}): Ver
   const sharpe = sharpeRatio(returns);
   const g3 = skewness(returns);
   const g4 = kurtosis(returns);
+  const sharpeAnn = annualise(sharpe, manifest.periodsPerYear);
+
+  // Does the selected series behave like trading returns? Runs before the
+  // expensive CSCV and bootstrap so a wrong-file upload fails fast with an
+  // actionable message. Throws on a hard reject; returns advisory warnings.
+  const warnings = checkReturnsPlausibility(returns, sharpeAnn, g3, g4, options.plausibility);
 
   // Selection-bias correction across the declared search space.
   const trialSharpes = new Array<number>(N);
@@ -297,7 +307,7 @@ export function verify(bundle: EvidenceBundle, options: VerifyOptions = {}): Ver
       observations: T,
       trials: N,
       sharpe,
-      sharpeAnnualised: annualise(sharpe, manifest.periodsPerYear),
+      sharpeAnnualised: sharpeAnn,
       skewness: g3,
       kurtosis: g4,
       expectedMaxSharpe: sr0,
@@ -317,6 +327,7 @@ export function verify(bundle: EvidenceBundle, options: VerifyOptions = {}): Ver
         combinations: pboResult.combinations,
         droppedRows: pboResult.droppedRows,
       },
+      warnings,
       timings,
       elapsedMs: performance.now() - startedAt,
       digest,

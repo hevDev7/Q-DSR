@@ -80,14 +80,31 @@ export function kurtosis(xs: readonly number[]): number {
 }
 
 /**
+ * Relative variance floor.
+ *
+ * A series that is constant to floating-point precision leaves a residual
+ * variance around 1e-38 rather than exactly zero, and `variance < 0` never
+ * triggers. Dividing a real mean by that residual produces a Sharpe of 1e16
+ * instead of the 0 a truly-flat series returns. Comparing variance against a
+ * mean-relative floor treats "flat to within rounding" the same as "flat", which
+ * is what a degenerate series actually is. The floor sits far below any real
+ * return variance (sd ~ 1e-3 upward), so no genuine series is affected.
+ */
+function isDegenerateVariance(v: number, m: number): boolean {
+  return !Number.isFinite(v) || v <= 1e-12 * m * m + 1e-30;
+}
+
+/**
  * Per-period Sharpe ratio: mean / sample standard deviation.
- * Returns 0 for a degenerate (zero-variance) series rather than ±Infinity, so a
- * constant-return trial cannot win an argmax by accident.
+ * Returns 0 for a degenerate (zero- or near-zero-variance) series rather than an
+ * astronomically large value, so a constant-return trial cannot win an argmax or
+ * inflate a Sharpe by accident.
  */
 export function sharpeRatio(xs: readonly number[], riskFreeRate = 0): number {
-  const sd = stdev(xs);
-  if (!Number.isFinite(sd) || sd === 0) return 0;
-  return (mean(xs) - riskFreeRate) / sd;
+  const m = mean(xs);
+  const v = variance(xs);
+  if (isDegenerateVariance(v, m)) return 0;
+  return (m - riskFreeRate) / Math.sqrt(v);
 }
 
 /** Annualises a per-period Sharpe ratio. */
@@ -107,9 +124,12 @@ export function sharpeFromMoments(sum: number, sumSq: number, n: number): number
   const m = sum / n;
   const varianceNumerator = sumSq - n * m * m;
   if (varianceNumerator <= 0) return 0;
-  const sd = Math.sqrt(varianceNumerator / (n - 1));
-  if (!Number.isFinite(sd) || sd === 0) return 0;
-  return m / sd;
+  const v = varianceNumerator / (n - 1);
+  // Same degenerate-variance floor as sharpeRatio. Catastrophic cancellation in
+  // sumSq - n·m² leaves a tiny positive residual for a near-constant column,
+  // which would otherwise yield a 1e16 Sharpe and dominate an argmax.
+  if (isDegenerateVariance(v, m)) return 0;
+  return m / Math.sqrt(v);
 }
 
 /** Sorted copy — small helper so quantile callers cannot mutate their input. */

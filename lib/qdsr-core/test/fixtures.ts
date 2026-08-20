@@ -30,12 +30,18 @@ export function noiseTrials(seed: number, rows: number, columns: number): number
 /**
  * A trials matrix where column 0 carries a genuine, persistent edge and the rest
  * are noise. The selection process here is informative, so PBO should be near zero.
+ *
+ * The default drift is deliberately modest: 0.002 against a 0.01 per-period vol is
+ * an annualised Sharpe around 3.5–4, which is what a real edge looks like and what
+ * the demo's genuine sample produces. An earlier 0.006 drift certified too, but at
+ * an annualised Sharpe above 10 — beyond any real daily record and now correctly
+ * rejected by the intake plausibility layer. A genuine fixture must pass that layer.
  */
 export function signalTrials(
   seed: number,
   rows: number,
   columns: number,
-  drift = 0.006,
+  drift = 0.002,
 ): number[][] {
   const rng = createRng(seed);
   const matrix: number[][] = [];

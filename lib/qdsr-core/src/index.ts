@@ -22,6 +22,12 @@ export {
   variance,
 } from './stats.js';
 export { DEFAULT_THRESHOLDS } from './types.js';
+export {
+  PLAUSIBILITY_DEFAULTS,
+  assertHonestSearchSpace,
+  checkReturnsPlausibility,
+  distinctTrialColumns,
+} from './plausibility.js';
 export type {
   BootstrapOptions,
   BootstrapResult,
@@ -40,4 +46,6 @@ export type {
   VerifyOptions,
   VerifyPhase,
   PhaseTiming,
+  PlausibilityWarning,
+  PlausibilityThresholds,
 } from './types.js';
