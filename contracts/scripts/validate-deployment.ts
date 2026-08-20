@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { ethers, network } from 'hardhat';
+import { artifacts, ethers, network } from 'hardhat';
 
 /**
  * Exercises a deployed pair end to end and reports what it observed.
@@ -69,6 +69,57 @@ const SCRATCH_METADATA = {
 const OVERFIT = { dsrBps: 4_889n, pboBps: 5_041n, trials: 60n, observations: 756n };
 const ENGINE = 'qdsr-core/1.0.0';
 
+interface ImmutableRange {
+  start: number;
+  length: number;
+}
+
+/**
+ * Compares deployed runtime bytecode against what this checkout compiles to.
+ *
+ * Behavioural checks sample a handful of paths. This one settles identity: if
+ * the bytes match, every test in `contracts/test` describes the contract that
+ * is actually live, including the ones that cover markup escaping and proof
+ * binding — paths a probe transaction never reaches.
+ *
+ * Immutable variables are written into the runtime code at construction, so
+ * their slots differ from the compiled artifact by design. The artifact records
+ * where they sit; both sides are blanked over those ranges before comparing.
+ */
+async function matchesCompiledBytecode(
+  name: string,
+  address: string,
+): Promise<{ ok: boolean; detail: string }> {
+  const artifact = await artifacts.readArtifact(name);
+  const deployed = await ethers.provider.getCode(address);
+
+  const compiled = Buffer.from(artifact.deployedBytecode.slice(2), 'hex');
+  const onChain = Buffer.from(deployed.slice(2), 'hex');
+
+  if (compiled.length !== onChain.length) {
+    return { ok: false, detail: `${onChain.length} bytes on chain, ${compiled.length} compiled` };
+  }
+
+  // The artifact does not carry immutable offsets; the build-info behind it does.
+  const buildInfo = await artifacts.getBuildInfo(`${artifact.sourceName}:${name}`);
+  const references = (buildInfo?.output.contracts[artifact.sourceName]?.[name] as
+    | { evm?: { deployedBytecode?: { immutableReferences?: Record<string, ImmutableRange[]> } } }
+    | undefined)?.evm?.deployedBytecode?.immutableReferences;
+
+  let immutableBytes = 0;
+  for (const ranges of Object.values(references ?? {})) {
+    for (const { start, length } of ranges) {
+      compiled.fill(0, start, start + length);
+      onChain.fill(0, start, start + length);
+      immutableBytes += length;
+    }
+  }
+
+  const ok = compiled.equals(onChain);
+  const suffix = immutableBytes > 0 ? `, ${immutableBytes} immutable bytes masked` : '';
+  return { ok, detail: ok ? `${onChain.length} bytes identical${suffix}` : 'bytecode differs' };
+}
+
 async function main(): Promise<void> {
   const { registry: registryAddress, agenticId: agenticAddress } = loadAddresses();
   const [signer] = await ethers.getSigners();
@@ -113,6 +164,14 @@ async function main(): Promise<void> {
 
   const symbol = await agentic.symbol();
   check('AgenticID is an ERC-721', await agentic.supportsInterface('0x80ac58cd'), symbol);
+
+  for (const [name, address] of [
+    ['QDSRRegistry', registryAddress],
+    ['AgenticID', agenticAddress],
+  ] as const) {
+    const { ok, detail } = await matchesCompiledBytecode(name, address);
+    check(`${name} is the code in this checkout`, ok, detail);
+  }
 
   const isAttestor = await registry.isAttestor(signer.address);
   check('caller is an authorised attestor', isAttestor, isAttestor ? 'yes' : 'no — writes will revert');
