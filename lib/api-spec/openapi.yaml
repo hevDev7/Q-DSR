@@ -652,6 +652,21 @@ components:
           type: number
       required: [splits, combinations, droppedRows]
 
+    PlausibilityWarning:
+      type: object
+      description: |
+        A non-fatal caution surfaced beside a verdict. The upload was accepted and
+        measured, but a property of it is unusual enough that a human should see it.
+        Advisory only — warnings never change the verdict.
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        value:
+          type: number
+      required: [code, message, value]
+
     VerificationResult:
       type: object
       properties:
@@ -691,6 +706,10 @@ components:
           $ref: "#/components/schemas/BootstrapSummary"
         cscv:
           $ref: "#/components/schemas/CscvSummary"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlausibilityWarning"
         timings:
           type: array
           items:
@@ -715,6 +734,7 @@ components:
         - pbo
         - bootstrap
         - cscv
+        - warnings
         - timings
         - elapsedMs
         - digest

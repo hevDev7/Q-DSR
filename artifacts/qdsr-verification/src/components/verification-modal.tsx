@@ -228,6 +228,23 @@ export function VerificationModal({
                   ))}
                 </div>
 
+                {result.warnings && result.warnings.length > 0 && (
+                  <div
+                    data-testid="plausibility-warnings"
+                    className="mt-4 space-y-1.5 rounded-lg border border-[#946b37]/40 bg-[#241d13] px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wide text-[#e0b478]">
+                      <CircleAlert size={12} className="shrink-0" />
+                      Accepted with cautions — the numbers are unusual, not invalid
+                    </div>
+                    {result.warnings.map((w) => (
+                      <div key={w.code} className="font-mono text-[10px] leading-5 text-[#c9ad82]">
+                        · {w.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {!certified && result.minimumTrackRecordLength != null && (
                   <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#946b37]/40 bg-[#241d13] px-3 py-2.5 font-mono text-[10px] leading-5 text-[#e0b478]">
                     <Clock3 size={13} className="mt-0.5 shrink-0" />

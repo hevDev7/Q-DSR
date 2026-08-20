@@ -179,6 +179,11 @@ export const GetAgentResponse = zod.object({
   "combinations": zod.number(),
   "droppedRows": zod.number()
 }),
+  "warnings": zod.array(zod.object({
+  "code": zod.string(),
+  "message": zod.string(),
+  "value": zod.number()
+}).describe('A non-fatal caution surfaced beside a verdict. The upload was accepted and\nmeasured, but a property of it is unusual enough that a human should see it.\nAdvisory only — warnings never change the verdict.\n')),
   "timings": zod.array(zod.object({
   "phase": zod.enum(['validating', 'fingerprinting', 'cscv', 'bootstrap', 'sealing']),
   "label": zod.string(),
@@ -266,6 +271,11 @@ export const StartVerificationResponse = zod.object({
   "combinations": zod.number(),
   "droppedRows": zod.number()
 }),
+  "warnings": zod.array(zod.object({
+  "code": zod.string(),
+  "message": zod.string(),
+  "value": zod.number()
+}).describe('A non-fatal caution surfaced beside a verdict. The upload was accepted and\nmeasured, but a property of it is unusual enough that a human should see it.\nAdvisory only — warnings never change the verdict.\n')),
   "timings": zod.array(zod.object({
   "phase": zod.enum(['validating', 'fingerprinting', 'cscv', 'bootstrap', 'sealing']),
   "label": zod.string(),
@@ -409,6 +419,11 @@ export const ListRunsResponseItem = zod.object({
   "combinations": zod.number(),
   "droppedRows": zod.number()
 }),
+  "warnings": zod.array(zod.object({
+  "code": zod.string(),
+  "message": zod.string(),
+  "value": zod.number()
+}).describe('A non-fatal caution surfaced beside a verdict. The upload was accepted and\nmeasured, but a property of it is unusual enough that a human should see it.\nAdvisory only — warnings never change the verdict.\n')),
   "timings": zod.array(zod.object({
   "phase": zod.enum(['validating', 'fingerprinting', 'cscv', 'bootstrap', 'sealing']),
   "label": zod.string(),
@@ -489,6 +504,11 @@ export const GetRunResponse = zod.object({
   "combinations": zod.number(),
   "droppedRows": zod.number()
 }),
+  "warnings": zod.array(zod.object({
+  "code": zod.string(),
+  "message": zod.string(),
+  "value": zod.number()
+}).describe('A non-fatal caution surfaced beside a verdict. The upload was accepted and\nmeasured, but a property of it is unusual enough that a human should see it.\nAdvisory only — warnings never change the verdict.\n')),
   "timings": zod.array(zod.object({
   "phase": zod.enum(['validating', 'fingerprinting', 'cscv', 'bootstrap', 'sealing']),
   "label": zod.string(),

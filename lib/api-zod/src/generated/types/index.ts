@@ -38,6 +38,7 @@ export * from './mintIntent';
 export * from './notFoundResponse';
 export * from './phaseTiming';
 export * from './phaseTimingPhase';
+export * from './plausibilityWarning';
 export * from './replicationReport';
 export * from './run';
 export * from './runStatus';

@@ -220,6 +220,41 @@ describe('verification workflow', () => {
     expect(response.body.field).toBe('evidenceRoot');
   });
 
+  it('fails a run whose search space is forged from duplicate columns', async () => {
+    // The critical hole the adversarial sweep found: 30 identical columns collapse
+    // the DSR deflation and PBO, certifying an unproven edge. The intake layer must
+    // reject it. returns equals the (only, duplicated) column, so it parses.
+    const agent = await createAgent('Forged Search Space');
+    const rows: string[] = ['timestamp,' + Array.from({ length: 30 }, (_, i) => `cfg_${i}`).join(',')];
+    const returnsRows: string[] = ['timestamp,cfg_0'];
+    for (let t = 0; t < 300; t++) {
+      const v = (Math.sin(t) * 0.01).toFixed(8); // one real-ish series
+      rows.push(`d${t},` + new Array(30).fill(v).join(','));
+      returnsRows.push(`d${t},${v}`);
+    }
+    const evidenceRoot = await publish({
+      evidence: { returnsCsv: returnsRows.join('\n'), trialsCsv: rows.join('\n'), selectedColumn: 'cfg_0' },
+    });
+
+    const started = await request(app)
+      .post(`/api/agents/${agent.id}/verify`)
+      .send({ evidenceRoot })
+      .expect(202);
+
+    let run;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const poll = await request(app).get(`/api/runs/${started.body.id}`).expect(200);
+      if (poll.body.status === 'completed' || poll.body.status === 'failed') {
+        run = poll.body;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    expect(run.status).toBe('failed');
+    expect(run.error).toMatch(/distinct|duplicate/i);
+  });
+
   it('measures the published bytes rather than a bundle handed to it', async () => {
     const agent = await createAgent('Root Substitution');
     const genuine = await sample('genuine');

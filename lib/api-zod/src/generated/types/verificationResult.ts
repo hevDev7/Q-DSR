@@ -14,6 +14,7 @@ import type { BootstrapSummary } from './bootstrapSummary';
 import type { CscvSummary } from './cscvSummary';
 import type { GateOutcome } from './gateOutcome';
 import type { PhaseTiming } from './phaseTiming';
+import type { PlausibilityWarning } from './plausibilityWarning';
 import type { Verdict } from './verdict';
 
 export interface VerificationResult {
@@ -34,6 +35,7 @@ export interface VerificationResult {
   minimumTrackRecordLength?: number | null;
   bootstrap: BootstrapSummary;
   cscv: CscvSummary;
+  warnings: PlausibilityWarning[];
   timings: PhaseTiming[];
   elapsedMs: number;
   digest: string;

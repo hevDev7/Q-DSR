@@ -137,6 +137,17 @@ export interface CscvSummary {
   droppedRows: number;
 }
 
+/**
+ * A non-fatal caution surfaced beside a verdict. The upload was accepted and
+ * measured, but a property of it is unusual enough that a human should see it.
+ * Advisory only — warnings never change the verdict.
+ */
+export interface PlausibilityWarning {
+  code: string;
+  message: string;
+  value: number;
+}
+
 export type PhaseTimingPhase = typeof PhaseTimingPhase[keyof typeof PhaseTimingPhase];
 
 
@@ -175,6 +186,7 @@ export interface VerificationResult {
   minimumTrackRecordLength?: number | null;
   bootstrap: BootstrapSummary;
   cscv: CscvSummary;
+  warnings: PlausibilityWarning[];
   timings: PhaseTiming[];
   elapsedMs: number;
   digest: string;

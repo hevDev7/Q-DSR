@@ -39,6 +39,7 @@ export function toResultDto(result: VerificationResult): Record<string, unknown>
       probabilityPositive: result.bootstrap.probabilityPositive,
     },
     cscv: result.cscv,
+    warnings: result.warnings,
     timings: result.timings,
     elapsedMs: result.elapsedMs,
     digest: result.digest,
