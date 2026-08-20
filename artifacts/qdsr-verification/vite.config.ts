@@ -72,6 +72,15 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // In production both are served from one origin under /api. Locally the API
+    // runs on its own port, so the dev server forwards to it and the client code
+    // stays identical in both environments.
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
