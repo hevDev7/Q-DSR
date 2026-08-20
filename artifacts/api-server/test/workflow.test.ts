@@ -214,6 +214,32 @@ describe('audit trail', () => {
   });
 });
 
+describe('mint intent', () => {
+  it('refuses a certified agent whose verdict is not on chain yet', async () => {
+    const agent = await createAgent('Mint Candidate');
+    const run = await runToCompletion(agent.id, 'genuine');
+    await request(app).post(`/api/runs/${run.id}/anchor`).expect(200);
+
+    const intent = await request(app).get(`/api/agents/${agent.id}/mint-intent`).expect(200);
+    // Sealed locally, but no chain is configured in tests — so the registry has
+    // nothing, and the contract would revert.
+    expect(intent.body.ready).toBe(false);
+    expect(intent.body.verdict).toBe('certified');
+    expect(intent.body.agentIdHash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it('explains an unverified agent rather than returning a bare false', async () => {
+    const agent = await createAgent('Never Verified');
+    const intent = await request(app).get(`/api/agents/${agent.id}/mint-intent`).expect(200);
+    expect(intent.body.ready).toBe(false);
+    expect(intent.body.blockedReason.length).toBeGreaterThan(10);
+  });
+
+  it('404s for an unknown agent', async () => {
+    await request(app).get('/api/agents/agt_missing/mint-intent').expect(404);
+  });
+});
+
 describe('chain configuration', () => {
   it('states plainly that nothing is connected', async () => {
     const response = await request(app).get('/api/chain/config').expect(200);

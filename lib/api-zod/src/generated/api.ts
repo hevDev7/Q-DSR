@@ -284,6 +284,37 @@ export const StartVerificationResponse = zod.object({
 
 
 /**
+ * Minting is performed by the agent owner's own wallet, not by this server,
+ * so the server's job is to hand over the exact arguments and to say plainly
+ * whether the attempt would succeed.
+ *
+ * `ready` is false until the agent holds a passing verdict AND that verdict
+ * has been anchored on chain — the contract reads the registry, so a mint
+ * before anchoring reverts.
+ * @summary What a wallet needs in order to mint this agent's Agentic ID
+ */
+export const GetMintIntentParams = zod.object({
+  "agentId": zod.coerce.string()
+})
+
+export const GetMintIntentResponse = zod.object({
+  "ready": zod.boolean(),
+  "blockedReason": zod.string().optional().describe('Why a mint would fail right now. Absent when ready.'),
+  "verdict": zod.enum(['certified', 'insignificant']).optional(),
+  "agentIdHash": zod.string().describe('bytes32 — the identity key the registry holds verdicts under'),
+  "metadataURI": zod.string().optional().describe('0g:\/\/storage\/<evidenceRoot>'),
+  "metadataHash": zod.string().optional().describe('bytes32 — the result digest'),
+  "evidenceRoot": zod.string().optional(),
+  "chainId": zod.number().optional(),
+  "rpcUrl": zod.string().optional().describe('Public RPC, so a browser can query the contract without a wallet.'),
+  "networkName": zod.string(),
+  "agenticIdAddress": zod.string().optional(),
+  "registryAddress": zod.string().optional(),
+  "explorerBaseUrl": zod.string().optional()
+})
+
+
+/**
  * @summary List verification runs
  */
 export const ListRunsQueryParams = zod.object({
@@ -538,6 +569,7 @@ export const ListAuditEventsResponse = zod.array(ListAuditEventsResponseItem)
 export const GetChainConfigResponse = zod.object({
   "configured": zod.boolean(),
   "chainId": zod.number().optional(),
+  "rpcUrl": zod.string().optional(),
   "networkName": zod.string(),
   "explorerBaseUrl": zod.string().optional(),
   "registryAddress": zod.string().optional(),

@@ -23,5 +23,18 @@ export const AGENTIC_ID_ABI = [
   'function tokenIdOfAgent(bytes32 agentId) view returns (uint256)',
   'function isStillCertified(uint256 tokenId) view returns (bool)',
   'function totalMinted() view returns (uint256)',
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function encryptedURI(uint256 tokenId) view returns (string)',
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
   'event AgenticIdMinted(uint256 indexed tokenId, bytes32 indexed agentId, address indexed to, bytes32 metadataHash, string metadataURI)',
+  // Declared so a client can decode a revert into a name rather than raw bytes.
+  // The blocked mint is the protocol's most important outcome; it deserves a
+  // readable answer.
+  'error AgentNotCertified(bytes32 agentId)',
+  'error AgentAlreadyMinted(bytes32 agentId, uint256 tokenId)',
+  'error ZeroAddress()',
+  'error EmptyMetadata()',
+  'error UnknownToken(uint256 tokenId)',
+  'error NotTokenOwner(uint256 tokenId, address caller)',
 ] as const;

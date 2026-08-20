@@ -37,11 +37,13 @@ export class OgChainClient implements ChainClient {
   private readonly wallet: Wallet;
   private readonly registry: Contract;
   private readonly chainId: number;
+  private readonly rpcUrl: string;
   private readonly registryAddress: string;
   private readonly agenticIdAddress?: string;
 
   constructor(config: Required<Pick<ChainConfig, 'rpcUrl' | 'privateKey' | 'registryAddress'>> & ChainConfig) {
     this.chainId = config.chainId ?? OG_MAINNET.chainId;
+    this.rpcUrl = config.rpcUrl;
     this.registryAddress = config.registryAddress;
     this.agenticIdAddress = config.agenticIdAddress;
 
@@ -55,6 +57,7 @@ export class OgChainClient implements ChainClient {
     return {
       configured: true,
       chainId: this.chainId,
+      rpcUrl: this.rpcUrl,
       networkName: network?.name ?? `chain ${this.chainId}`,
       explorerBaseUrl: network?.explorerBaseUrl,
       registryAddress: this.registryAddress,

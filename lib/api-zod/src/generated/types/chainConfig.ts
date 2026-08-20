@@ -15,6 +15,7 @@ import type { ChainConfigStorageMode } from './chainConfigStorageMode';
 export interface ChainConfig {
   configured: boolean;
   chainId?: number;
+  rpcUrl?: string;
   networkName: string;
   explorerBaseUrl?: string;
   registryAddress?: string;

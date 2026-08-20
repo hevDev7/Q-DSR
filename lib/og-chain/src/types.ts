@@ -22,6 +22,8 @@ export interface AnchorReceipt {
 export interface ChainStatus {
   configured: boolean;
   chainId?: number;
+  /** Public RPC endpoint. Exposed so a browser can read contract state without a wallet. */
+  rpcUrl?: string;
   networkName: string;
   explorerBaseUrl?: string;
   registryAddress?: string;

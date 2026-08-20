@@ -129,6 +129,31 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /agents/{agentId}/mint-intent:
+    get:
+      operationId: getMintIntent
+      tags: [chain]
+      summary: What a wallet needs in order to mint this agent's Agentic ID
+      description: |
+        Minting is performed by the agent owner's own wallet, not by this server,
+        so the server's job is to hand over the exact arguments and to say plainly
+        whether the attempt would succeed.
+
+        `ready` is false until the agent holds a passing verdict AND that verdict
+        has been anchored on chain — the contract reads the registry, so a mint
+        before anchoring reverts.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Mint intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MintIntent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /runs:
     get:
       operationId: listRuns
@@ -673,6 +698,42 @@ components:
           type: string
       required: [runId, status]
 
+    MintIntent:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        blockedReason:
+          type: string
+          description: Why a mint would fail right now. Absent when ready.
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        agentIdHash:
+          type: string
+          description: bytes32 — the identity key the registry holds verdicts under
+        metadataURI:
+          type: string
+          description: 0g://storage/<evidenceRoot>
+        metadataHash:
+          type: string
+          description: bytes32 — the result digest
+        evidenceRoot:
+          type: string
+        chainId:
+          type: number
+        rpcUrl:
+          type: string
+          description: Public RPC, so a browser can query the contract without a wallet.
+        networkName:
+          type: string
+        agenticIdAddress:
+          type: string
+        registryAddress:
+          type: string
+        explorerBaseUrl:
+          type: string
+      required: [ready, agentIdHash, networkName]
+
     ReplicationReport:
       type: object
       properties:
@@ -758,6 +819,8 @@ components:
           type: boolean
         chainId:
           type: number
+        rpcUrl:
+          type: string
         networkName:
           type: string
         explorerBaseUrl:

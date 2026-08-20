@@ -10,6 +10,7 @@ export function chainRouter(ctx: AppContext): IRouter {
     res.json({
       configured: status.configured,
       chainId: status.chainId,
+      rpcUrl: status.rpcUrl,
       networkName: status.networkName,
       explorerBaseUrl: status.explorerBaseUrl,
       registryAddress: status.registryAddress,

@@ -3,6 +3,7 @@ import { Router, type IRouter } from 'express';
 import type { AppContext } from '../context.js';
 import { accentFor, newId } from '../lib/ids.js';
 import { toAgentDto, toRunDto } from '../services/mapper.js';
+import { buildMintIntent } from '../services/mint.js';
 import { EvidenceRequestError } from '../services/verification.js';
 
 export function agentsRouter(ctx: AppContext): IRouter {
@@ -104,6 +105,19 @@ export function agentsRouter(ctx: AppContext): IRouter {
     );
 
     res.json({ ...toAgentDto(agent, latest, anchor), runs: runDtos });
+  });
+
+  router.get('/agents/:agentId/mint-intent', async (req, res) => {
+    const agent = await ctx.store.getAgent(req.params.agentId!);
+    if (!agent) {
+      res.status(404).json({ error: 'agent not found' });
+      return;
+    }
+
+    const run = agent.latestRunId ? await ctx.store.getRun(agent.latestRunId) : undefined;
+    const anchor = run ? await ctx.store.getAnchor(run.id) : undefined;
+
+    res.json(buildMintIntent({ agent, run, anchor, chain: ctx.chain.status() }));
   });
 
   router.post('/agents/:agentId/verify', async (req, res) => {

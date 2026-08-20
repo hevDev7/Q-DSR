@@ -37,6 +37,7 @@ import type {
   ListAgentsParams,
   ListAuditEventsParams,
   ListRunsParams,
+  MintIntent,
   NotFoundResponse,
   ReplicationReport,
   Run,
@@ -455,6 +456,90 @@ export const useStartVerification = <TError = ErrorType<NotFoundResponse | Valid
       > => {
       return useMutation(getStartVerificationMutationOptions(options));
     }
+
+export const getGetMintIntentUrl = (agentId: string,) => {
+
+
+
+
+  return `/api/agents/${agentId}/mint-intent`
+}
+
+/**
+ * Minting is performed by the agent owner's own wallet, not by this server,
+ * so the server's job is to hand over the exact arguments and to say plainly
+ * whether the attempt would succeed.
+ *
+ * `ready` is false until the agent holds a passing verdict AND that verdict
+ * has been anchored on chain — the contract reads the registry, so a mint
+ * before anchoring reverts.
+ * @summary What a wallet needs in order to mint this agent's Agentic ID
+ */
+export const getMintIntent = async (agentId: string, options?: Parameters<typeof customFetch>[1]): Promise<MintIntent> => {
+
+  return customFetch<MintIntent>(getGetMintIntentUrl(agentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMintIntentQueryKey = (agentId: string,) => {
+    return [
+    `/api/agents/${agentId}/mint-intent`
+    ] as const;
+    }
+
+
+export const getGetMintIntentQueryOptions = <TData = Awaited<ReturnType<typeof getMintIntent>>, TError = ErrorType<NotFoundResponse>>(agentId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMintIntent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMintIntentQueryKey(agentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMintIntent>>> = ({ signal }) => getMintIntent(agentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: agentId !== null && agentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMintIntent>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMintIntentQueryResult = NonNullable<Awaited<ReturnType<typeof getMintIntent>>>
+export type GetMintIntentQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary What a wallet needs in order to mint this agent's Agentic ID
+ */
+
+export function useGetMintIntent<TData = Awaited<ReturnType<typeof getMintIntent>>, TError = ErrorType<NotFoundResponse>>(
+ agentId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMintIntent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMintIntentQueryOptions(agentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListRunsUrl = (params?: ListRunsParams,) => {
   const normalizedParams = new URLSearchParams();

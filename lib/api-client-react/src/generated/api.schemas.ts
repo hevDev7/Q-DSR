@@ -229,6 +229,27 @@ export interface VerificationRequest {
   cscvSplits?: number;
 }
 
+export interface MintIntent {
+  ready: boolean;
+  /** Why a mint would fail right now. Absent when ready. */
+  blockedReason?: string;
+  verdict?: Verdict;
+  /** bytes32 — the identity key the registry holds verdicts under */
+  agentIdHash: string;
+  /** 0g://storage/<evidenceRoot> */
+  metadataURI?: string;
+  /** bytes32 — the result digest */
+  metadataHash?: string;
+  evidenceRoot?: string;
+  chainId?: number;
+  /** Public RPC, so a browser can query the contract without a wallet. */
+  rpcUrl?: string;
+  networkName: string;
+  agenticIdAddress?: string;
+  registryAddress?: string;
+  explorerBaseUrl?: string;
+}
+
 export interface ReplicationReport {
   runId: string;
   reproduced: boolean;
@@ -303,6 +324,7 @@ export const ChainConfigStorageMode = {
 export interface ChainConfig {
   configured: boolean;
   chainId?: number;
+  rpcUrl?: string;
   networkName: string;
   explorerBaseUrl?: string;
   registryAddress?: string;

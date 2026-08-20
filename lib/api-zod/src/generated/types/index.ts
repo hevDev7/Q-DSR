@@ -33,6 +33,7 @@ export * from './healthStatus';
 export * from './listAgentsParams';
 export * from './listAuditEventsParams';
 export * from './listRunsParams';
+export * from './mintIntent';
 export * from './notFoundResponse';
 export * from './phaseTiming';
 export * from './phaseTimingPhase';
