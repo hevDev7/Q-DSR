@@ -13,6 +13,10 @@ Sharpe Ratio. The verdict is anchored on 0G Chain. The evidence is published to
 
 An agent that fails does not get a warning label. It does not get minted.
 
+The developer mints from their own wallet — this server never holds a key that
+could mint on their behalf. Its job is to hand over the exact arguments and to
+say plainly whether the contract would accept them.
+
 ---
 
 ## The number that makes the case
@@ -73,6 +77,20 @@ pnpm run typecheck                              # all packages
 
 ## How it works
 
+### The gate, from the browser
+
+The dashboard can ask the deployed contract what it would do, without spending
+anything. The answer comes back in the contract's own vocabulary:
+
+| Agent | The contract says |
+|---|---|
+| Certified (DSR 0.9982, PBO 0.0004) | *The contract would accept this mint.* |
+| Insignificant (DSR 0.4889, PBO 0.5041) | *`AgentNotCertified` — the registry holds no passing verdict for this agent.* |
+
+That refusal is a read-only `staticCall` against the real chain, not a disabled
+button in our UI. The distinction matters: the gate is the contract's, and it
+can be checked by anyone.
+
 ```mermaid
 flowchart TD
     A["returns.csv + trials.csv<br/>the full search space"] --> B{Validate}
@@ -96,7 +114,7 @@ flowchart TD
     J --> K["0G Chain — QDSRRegistry<br/>root + digest + metrics"]
     K --> L{"AgenticID.mint()"}
     L -->|isCertified false| M["revert AgentNotCertified"]
-    L -->|isCertified true| N["ERC-7857 Agentic ID"]
+    L -->|isCertified true| N["ERC-7857 Agentic ID<br/>minted to the developer's wallet"]
 
     K -.->|anyone| O["Download withProof<br/>re-run pinned engine<br/>compare digests"]
 ```
@@ -278,7 +296,9 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (193 tests)
+- Statistics engine, contracts, API and UI: complete and tested (196 tests)
+- Wallet-signed minting: the developer connects their own wallet, signs, and pays
+  their own gas; verified end to end against a local node
 - 0G Storage: integrated, with a local fallback that produces identical roots
 - 0G Chain: integrated; contracts compiled and tested, mainnet deployment pending
 - 0G Compute TEE: **not implemented** — roadmap, for the reasons above

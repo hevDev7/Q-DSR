@@ -57,9 +57,14 @@ agent can mint an ERC-7857 Agentic ID on 0G.
 ## Product
 
 Register an agent, submit `returns.csv` plus the full `trials.csv` search space, and
-the engine returns PBO and DSR in about 135 ms. Certified agents can mint an Agentic
-ID; uncertified ones revert at the mint gate. Evidence goes to 0G Storage, the verdict
-to 0G Chain, and anyone can replicate the run and compare digests.
+the engine returns PBO and DSR in about 135 ms. Evidence goes to 0G Storage, the
+verdict to 0G Chain, and anyone can replicate the run and compare digests.
+
+A certified agent can then be minted as an ERC-7857 Agentic ID **from the developer's
+own wallet** — the server never holds a key that could mint for them. `GET
+/agents/:id/mint-intent` hands over the exact arguments and states whether the
+contract would accept them; the browser signs and pays. Uncertified agents revert
+at the gate, and the dashboard can prove it with a read-only call.
 
 ## Gotchas
 
@@ -73,6 +78,12 @@ to 0G Chain, and anyone can replicate the run and compare digests.
   `lib/qdsr-core/src/engine.ts` — old verdicts must remain re-checkable against the
   engine that produced them.
 - `Math.random()` is banned inside `lib/qdsr-core`.
+- **Minting requires the verdict to be anchored on chain first.** `AgenticID.mint`
+  reads `isCertified` from the registry, so a verdict that exists only in our
+  database is invisible to it and the mint reverts.
+- The gate probe must send non-zero `metadataURI` and `metadataHash`. The contract
+  checks `EmptyMetadata` *before* certification, so zero placeholders return the
+  wrong refusal reason.
 - Requires **pnpm 10+**: `overrides` live in `pnpm-workspace.yaml`, which pnpm 9 ignores,
   producing `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
 - Contracts need `viaIR: true` — `submitVerdict` exhausts the legacy stack.
