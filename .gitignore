@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Q-DSR runtime data (JSON store + evidence cache)
+.data/
+contracts/deployments/

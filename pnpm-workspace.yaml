@@ -36,6 +36,7 @@ minimumReleaseAgeExclude:
 
 packages:
   - artifacts/*
+  - contracts
   - lib/*
   - lib/integrations/*
   - scripts
@@ -70,6 +71,7 @@ autoInstallPeers: false
 
 onlyBuiltDependencies:
   - '@swc/core'
+  - keccak
   - esbuild
   - msw
   - unrs-resolver
