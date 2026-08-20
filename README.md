@@ -339,8 +339,9 @@ Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 - Statistics engine, contracts, API and UI: complete and tested (201 tests)
 - Deployed and source-verified on 0G Galileo testnet; 15/15 deployment checks pass
 - Wallet-signed minting verified end to end by a human: Agentic ID
-  [token #2](https://chainscan-galileo.0g.ai/token/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d?a=2)
-  is owned by the wallet that signed for it, not by this server
+  [token #2](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2)
+  is owned by the wallet that signed for it, not by this server, and carries its
+  own DSR and PBO in on-chain metadata
 - 0G Storage: integrated, with a local fallback that produces identical roots
 - 0G Chain: integrated; contracts compiled and tested, mainnet deployment pending
 - 0G Compute TEE: **not implemented** — roadmap, for the reasons above

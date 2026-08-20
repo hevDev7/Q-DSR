@@ -192,17 +192,40 @@ that is not yet provable at sixty trials is still not provable.
 **A wallet-signed mint, by a human.** Cinder Delta was minted from a browser
 wallet rather than by this server:
 
+[`Agentic ID #2`](https://chainscan-galileo.0g.ai/nft/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc/2)
+
 | | |
 |---|---|
-| Token | [`#2`](https://chainscan-galileo.0g.ai/token/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d?a=2) |
 | Owner | `0x71a89a7e692dAC4d6BD7c3f1cCa9155592d87BaE` |
 | Attestor (server) | `0x3bAf34DC64830eeCE76D4a351c0A72971f9c0Be0` |
-| Metadata | `0g://storage/0x9f1aaf227e…785f2fc` |
-| Transaction | [`0x72ded655…`](https://chainscan-galileo.0g.ai/tx/0x72ded6556391b2e001a0a954d168efb02e362f541bfcc28375404326eb1face2) · block 50390895 |
+| Evidence | `0g://storage/0x2f20038b…` |
+| Artwork | 0G Storage, via the indexer gateway |
 
 The owner is not the attestor. That is the property worth checking: the server
 holds a key that can record a measurement and nothing else, and the identity
 belongs to the wallet that signed for it.
+
+`tokenURI` resolves, on chain, to:
+
+```json
+{
+  "name": "Cinder Delta #2",
+  "description": "Market-neutral basis strategy on ETH perpetuals…",
+  "image": "https://indexer-storage-testnet-turbo.0g.ai/file?root=0x50ecc67a…",
+  "external_url": "0g://storage/0x2f20038b…",
+  "attributes": [
+    { "trait_type": "Verdict", "value": "Certified" },
+    { "trait_type": "Deflated Sharpe Ratio", "value": "0.9999" },
+    { "trait_type": "Probability of Backtest Overfitting", "value": "0.0000" },
+    { "trait_type": "Configurations tested", "value": 60 },
+    { "trait_type": "Observations", "value": 1512 }
+  ]
+}
+```
+
+Chainscan will label it ERC-721, which is true and less specific — explorers match
+the standards they have implemented and ERC-7857 is a draft. The contract answers
+`supportsInterface(0x76b2298c)`, so anything that asks gets the fuller answer.
 
 **Gas.** Nine transactions in total — two deployments, three validation
 transactions and four anchored verdicts — for **0.015406 0G**, averaging
