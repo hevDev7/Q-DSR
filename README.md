@@ -196,13 +196,30 @@ owner check with `registry.isCertified(agentId)`.
 
 ### Deploying
 
-```bash
-pnpm --filter @workspace/contracts run compile
-pnpm --filter @workspace/contracts run test
+Full runbook: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Three staged gates —
+a local node, then the Galileo testnet, then mainnet — each of which has to pass
+before the next begins.
 
+```bash
+# stage 0 — a local node, costing nothing
+pnpm --filter @workspace/contracts run node          # terminal 1
+pnpm --filter @workspace/contracts run deploy:local  # terminal 2
+pnpm --filter @workspace/contracts run validate:local
+
+# stage 1 — testnet
+DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run preflight:testnet
 DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run deploy:testnet
-DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run deploy:mainnet
+DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run validate:testnet
 ```
+
+`preflight` refuses to proceed on an unreachable RPC, a chain-id mismatch or an
+unfunded deployer. `validate` deploys nothing — it exercises an existing
+deployment with 15 checks, including a mint that reverts for an uncertified
+agent and the same mint succeeding once a passing verdict is recorded.
+
+Stage 0 has been run end to end: the API server anchored a certified verdict and
+an insignificant one to a live node, and the on-chain mint gate answered ALLOWED
+and `AgentNotCertified` respectively.
 
 Addresses and explorer links are written to `contracts/deployments/<network>.json`.
 Set `QDSR_REGISTRY_ADDRESS`, `OG_RPC_URL` and `OG_PRIVATE_KEY` on the API server
