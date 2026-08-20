@@ -66,8 +66,15 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
     // ---------------------------------------------------------------------
 
     address public owner;
+    address public pendingOwner;
     mapping(address => bool) public isAttestor;
     mapping(bytes32 => Verdict[]) private _history;
+
+    /// @dev Maintained on write so `hasFailedVerdict` is O(1). History is
+    ///      append-only and unbounded, so scanning it would grow more expensive
+    ///      with every submission until on-chain callers could no longer afford
+    ///      the query — a rejected agent could bury its own rejection in gas.
+    mapping(bytes32 => bool) private _everFailed;
 
     // ---------------------------------------------------------------------
     // Events
@@ -84,6 +91,7 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
         string engineVersion
     );
     event AttestorUpdated(address indexed attestor, bool authorised);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // ---------------------------------------------------------------------
@@ -91,6 +99,7 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
     // ---------------------------------------------------------------------
 
     error NotOwner();
+    error NotPendingOwner();
     error NotAttestor();
     error ZeroAddress();
     error EmptyAgentId();
@@ -134,10 +143,26 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
         emit AttestorUpdated(attestor, authorised);
     }
 
+    /**
+     * @notice Step one of a two-step ownership handover.
+     * @dev Two steps because this contract is immutable and has no recovery path.
+     *      A single-step transfer to a mistyped or unreachable address would strand
+     *      `setAttestor` forever, and with it the ability to rotate a compromised
+     *      attestor key. Requiring the recipient to call `acceptOwnership` proves
+     *      the address can transact before it becomes the only one that can.
+     */
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Step two — the nominee claims ownership.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner();
+        emit OwnershipTransferred(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 
     // ---------------------------------------------------------------------
@@ -186,6 +211,7 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
 
         _history[agentId].push(verdict);
         index = _history[agentId].length - 1;
+        if (!certified) _everFailed[agentId] = true;
 
         emit VerdictSubmitted(
             agentId,
@@ -243,11 +269,7 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
 
     /// @notice True if the agent has ever been recorded as statistically insignificant.
     function hasFailedVerdict(bytes32 agentId) external view returns (bool) {
-        Verdict[] storage history = _history[agentId];
-        for (uint256 i = 0; i < history.length; i++) {
-            if (!history[i].certified) return true;
-        }
-        return false;
+        return _everFailed[agentId];
     }
 
     /**
