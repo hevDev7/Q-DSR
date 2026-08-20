@@ -250,16 +250,46 @@ describe('AgenticID', () => {
     });
   });
 
-  describe('ERC-721 conformance', () => {
+  describe('interface detection', () => {
     it('reports name and symbol', async () => {
       const { agentic } = await deploy();
       expect(await agentic.name()).to.equal('Q-DSR Agentic ID');
       expect(await agentic.symbol()).to.equal('QAID');
     });
 
-    it('supports the ERC-721 interface id', async () => {
+    it('supports ERC-165 and ERC-721', async () => {
       const { agentic } = await deploy();
+      expect(await agentic.supportsInterface('0x01ffc9a7')).to.equal(true);
       expect(await agentic.supportsInterface('0x80ac58cd')).to.equal(true);
+    });
+
+    it('advertises the ERC-7857 interface, so it is detectable as more than an ERC-721', async () => {
+      // An explorer will still print "ERC-721", because explorers match the
+      // standards they have implemented and ERC-7857 is a draft. This is for
+      // contracts and indexers, which can ask.
+      const { agentic } = await deploy();
+      const id = await agentic.ERC7857_INTERFACE_ID();
+      expect(await agentic.supportsInterface(id)).to.equal(true);
+    });
+
+    it('derives that id from the three functions ERC-7857 adds', async () => {
+      const { agentic } = await deploy();
+      const iface = new ethers.Interface([
+        'function transfer(address,address,uint256,bytes,bytes)',
+        'function clone(address,uint256,bytes,bytes) returns (uint256)',
+        'function authorizeUsage(uint256,address,bytes)',
+      ]);
+      const xor = ['transfer', 'clone', 'authorizeUsage']
+        .map((n) => BigInt(iface.getFunction(n)!.selector))
+        .reduce((a, b) => a ^ b);
+      const expected = ethers.zeroPadValue(ethers.toBeHex(xor), 4);
+
+      expect(await agentic.ERC7857_INTERFACE_ID()).to.equal(expected);
+    });
+
+    it('still answers false for a standard it does not implement', async () => {
+      const { agentic } = await deploy();
+      expect(await agentic.supportsInterface('0xd9b67a26')).to.equal(false); // ERC-1155
     });
   });
 });

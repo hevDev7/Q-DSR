@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import {IERC7857} from "./IERC7857.sol";
 import {IOracle, IQDSRRegistry} from "./IQDSROracle.sol";
 
 /**
@@ -19,7 +20,7 @@ import {IOracle, IQDSRRegistry} from "./IQDSROracle.sol";
  * cannot survive PBO and DSR testing cannot acquire an on-chain identity at all.
  * It does not get a warning label. It does not get minted.
  */
-contract AgenticID is ERC721, ReentrancyGuard {
+contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
@@ -166,7 +167,7 @@ contract AgenticID is ERC721, ReentrancyGuard {
         uint256 tokenId,
         bytes calldata sealedKey,
         bytes calldata proof
-    ) external validProof(proof) nonReentrant {
+    ) external override validProof(proof) nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (sealedKey.length == 0) revert EmptySealedKey();
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
@@ -189,7 +190,7 @@ contract AgenticID is ERC721, ReentrancyGuard {
         uint256 tokenId,
         bytes calldata sealedKey,
         bytes calldata proof
-    ) external validProof(proof) nonReentrant returns (uint256 newTokenId) {
+    ) external override validProof(proof) nonReentrant returns (uint256 newTokenId) {
         if (to == address(0)) revert ZeroAddress();
         if (sealedKey.length == 0) revert EmptySealedKey();
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
@@ -215,7 +216,7 @@ contract AgenticID is ERC721, ReentrancyGuard {
         uint256 tokenId,
         address executor,
         bytes calldata permissions
-    ) external {
+    ) external override {
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
         if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId, msg.sender);
         if (executor == address(0)) revert ZeroAddress();
@@ -250,6 +251,25 @@ contract AgenticID is ERC721, ReentrancyGuard {
 
     function totalMinted() external view returns (uint256) {
         return _nextTokenId - 1;
+    }
+
+    /**
+     * @notice ERC-165 id for the ERC-7857 surface.
+     * @dev The XOR of the three selectors the standard adds on top of ERC-721.
+     *      Computed here rather than hardcoded, so it cannot drift from the
+     *      interface it claims to describe.
+     */
+    bytes4 public constant ERC7857_INTERFACE_ID =
+        IERC7857.transfer.selector ^ IERC7857.clone.selector ^ IERC7857.authorizeUsage.selector;
+
+    /**
+     * @dev Without this an Agentic ID is indistinguishable on chain from any other
+     *      ERC-721. A block explorer will still print "ERC-721" — explorers match
+     *      against the standards they have implemented, and ERC-7857 is a draft —
+     *      but a contract or an indexer can now detect it.
+     */
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return interfaceId == ERC7857_INTERFACE_ID || super.supportsInterface(interfaceId);
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
