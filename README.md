@@ -306,6 +306,17 @@ whose agent later fails re-verification stops claiming to be certified. Artwork 
 optional: with none supplied the contract draws an SVG from the agent's own DSR
 and PBO, so a token always renders.
 
+### Intake plausibility
+
+Certification answers "real edge or overfit"; it assumed the upload was a return
+series. An adversarial sweep of 49 wrong or fabricated CSVs found 25 that the bare
+engine certified — price levels, sales figures, and a search space forged from
+identical columns among them. An intake layer now checks that an upload is *shaped*
+like a daily trading record before it is measured: **[docs/PLAUSIBILITY.md](docs/PLAUSIBILITY.md)**.
+It rejects wrong files and forged search spaces with actionable messages, warns on
+merely-unusual records, and passes a genuine strategy untouched — it does not, and
+cannot, prove from the CSV alone that the trades happened.
+
 ### Audit
 
 These contracts have no proxy, no pause and no upgrade path, so they were reviewed
@@ -402,7 +413,7 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (273 tests)
+- Statistics engine, contracts, API and UI: complete and tested (294 tests)
 - Contracts audited before mainnet; four findings fixed, each with a regression
   test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
 - Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks
