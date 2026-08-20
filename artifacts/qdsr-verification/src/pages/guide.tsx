@@ -3,6 +3,7 @@ import { ArrowUpRight, Terminal } from 'lucide-react';
 import { useGetChainConfig } from '@workspace/api-client-react';
 
 import { PageIntro, Panel } from '../components/primitives';
+import { shortHash } from '../lib/format';
 
 const SECTIONS = [
   {
@@ -96,7 +97,9 @@ export function GuidePage() {
             </dl>
             <p className="mt-3 text-[10px] leading-6 text-[#69786e]">
               These four constants are compiled into the registry contract. The attestor reports
-              measurements; the chain applies the rule.
+              measurements; the chain applies the rule. The attestor is a server key and is
+              never the wallet you connect — it can record a measurement, it cannot decide a
+              verdict.
             </p>
           </Panel>
 
@@ -117,6 +120,9 @@ export function GuidePage() {
                 ['engine', chain?.engineVersion ?? '—'],
                 ['network', chain?.configured ? chain.networkName : 'not connected'],
                 ['evidence storage', chain?.storageMode ?? '—'],
+                ['attestor', shortHash(chain?.attestorAddress, 10, 6)],
+                ['registry', shortHash(chain?.registryAddress, 10, 6)],
+                ['agentic id', shortHash(chain?.agenticIdAddress, 10, 6)],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3">
                   <dt className="text-[#77857a]">{label}</dt>
