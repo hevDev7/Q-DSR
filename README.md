@@ -224,10 +224,10 @@ pnpm --filter @workspace/contracts run node          # terminal 1
 pnpm --filter @workspace/contracts run deploy:local  # terminal 2
 pnpm --filter @workspace/contracts run validate:local
 
-# stage 1 — testnet
-DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run preflight:testnet
-DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run deploy:testnet
-DEPLOYER_PRIVATE_KEY=0x... pnpm --filter @workspace/contracts run validate:testnet
+# stage 1 — testnet (key goes in contracts/.env, which is gitignored)
+pnpm --filter @workspace/contracts run preflight:testnet
+pnpm --filter @workspace/contracts run deploy:testnet
+pnpm --filter @workspace/contracts run validate:testnet
 ```
 
 `preflight` refuses to proceed on an unreachable RPC, a chain-id mismatch or an

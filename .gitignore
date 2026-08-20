@@ -44,6 +44,12 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# environment files — a private key must never reach a public repository.
+# .env.example is the only one tracked, and it holds no values.
+.env
+.env.*
+!.env.example
+
 # tool caches
 .cache/
 .local/

@@ -66,19 +66,28 @@ response carries a real `chainTxHash` and `blockNumber`.
 
 ### 1. Fund a deployer
 
-Generate a key that has never touched mainnet:
+Use a key that has never touched mainnet and holds nothing of value. To generate
+one and write it straight into the gitignored env file:
 
 ```bash
-node -e "const {Wallet}=require('ethers');const w=Wallet.createRandom();console.log(w.address,w.privateKey)"
+node -e "
+const {Wallet}=require('./contracts/node_modules/ethers'), fs=require('fs');
+const w=Wallet.createRandom();
+fs.writeFileSync('contracts/.env',
+  'DEPLOYER_PRIVATE_KEY='+w.privateKey+'\nATTESTOR_ADDRESS='+w.address+'\n',{mode:0o600});
+console.log(w.address);"
 ```
 
-Request tokens at **https://faucet.0g.ai/**. If the faucet is rate-limited, ask
-in the 0G Buildathon Telegram support channel.
+`contracts/.env` is gitignored and is loaded automatically by hardhat.config.ts,
+so the key never needs to be exported into your shell — and never reaches your
+shell history.
+
+Request tokens for that address at **https://faucet.0g.ai/**. If the faucet is
+rate-limited, ask in the 0G Buildathon Telegram support channel.
 
 ### 2. Preflight
 
 ```bash
-export DEPLOYER_PRIVATE_KEY=0x...
 pnpm --filter @workspace/contracts run preflight:testnet
 ```
 
@@ -153,10 +162,9 @@ is what you want — the attestor is the account allowed to write verdicts, and
 `ATTESTOR_ADDRESS` sets it at construction. The deployer keeps ownership and can
 add or remove attestors later.
 
-```bash
-export DEPLOYER_PRIVATE_KEY=0x...
-export ATTESTOR_ADDRESS=0x...
+Put the mainnet key and attestor in `contracts/.env`, then:
 
+```bash
 pnpm --filter @workspace/contracts run preflight:mainnet
 pnpm --filter @workspace/contracts run deploy:mainnet
 pnpm --filter @workspace/contracts run verify:mainnet -- <REGISTRY> <ATTESTOR>
@@ -190,6 +198,10 @@ anchored you have all three:
 
 ## Keys
 
-`DEPLOYER_PRIVATE_KEY` is read from the environment only and is never written to
-a file in this repository. `contracts/deployments/` is gitignored — it holds
-deploy output, not source. Use a key funded for this purpose alone.
+`DEPLOYER_PRIVATE_KEY` lives in `contracts/.env`, which is gitignored, as is
+every `.env*` at the repository root except `.env.example`. `contracts/deployments/`
+is gitignored too — it holds deploy output, not source.
+
+Use a key funded for this purpose alone. The testnet deployer should be a
+throwaway; for mainnet, decide the attestor deliberately, because that account is
+the one permitted to write verdicts.

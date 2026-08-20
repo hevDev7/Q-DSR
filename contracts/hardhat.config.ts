@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomicfoundation/hardhat-network-helpers';
@@ -6,8 +8,9 @@ import '@nomicfoundation/hardhat-verify';
 import type { HardhatUserConfig } from 'hardhat/config';
 
 /**
- * Deployment keys come from the environment only — never from a file in the repo.
- * `DEPLOYER_PRIVATE_KEY` stays unset until the moment of a real deploy.
+ * Deployment keys are read from `contracts/.env`, which is gitignored, or from the
+ * environment. Keeping them in a file rather than an exported shell variable stops
+ * the key from landing in shell history — and the file can never be committed.
  */
 const deployerKey = process.env.DEPLOYER_PRIVATE_KEY;
 const accounts = deployerKey ? [deployerKey] : [];
