@@ -11,6 +11,11 @@ export const QDSR_REGISTRY_ABI = [
   'function isCertified(bytes32 agentId) view returns (bool)',
   'function hasFailedVerdict(bytes32 agentId) view returns (bool)',
   'function verdictCount(bytes32 agentId) view returns (uint256)',
+  // The append-only history is the part a third party audits, so a client library
+  // that cannot read it back is only half a client.
+  'function latestVerdict(bytes32 agentId) view returns (tuple(bytes32 evidenceRoot, bytes32 resultDigest, bytes32 engineVersionHash, uint32 dsrBps, uint32 pboBps, uint32 trials, uint32 observations, uint64 submittedAt, address attestor, bool certified))',
+  'function verdictAt(bytes32 agentId, uint256 index) view returns (tuple(bytes32 evidenceRoot, bytes32 resultDigest, bytes32 engineVersionHash, uint32 dsrBps, uint32 pboBps, uint32 trials, uint32 observations, uint64 submittedAt, address attestor, bool certified))',
+  'function owner() view returns (address)',
   'function deriveAgentId(address agentOwner, string agentName) pure returns (bytes32)',
   'function isAttestor(address) view returns (bool)',
   'function MIN_DSR_BPS() view returns (uint32)',

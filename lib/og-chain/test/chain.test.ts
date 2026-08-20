@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { Interface } from 'ethers';
+
 import {
   ChainNotConfiguredError,
+  QDSR_REGISTRY_ABI,
   DisabledChainClient,
   createChainClient,
   deriveAgentId,
@@ -67,6 +70,27 @@ describe('toBasisPoints', () => {
     expect(toBasisPoints(1.5)).toBe(10_000);
     expect(toBasisPoints(-0.2)).toBe(0);
     expect(toBasisPoints(NaN)).toBe(0);
+  });
+});
+
+describe('QDSR_REGISTRY_ABI', () => {
+  it('can read back the append-only verdict history', () => {
+    // A client that can write a verdict but not read the history cannot audit,
+    // which is the only reason the history is append-only in the first place.
+    const surface = QDSR_REGISTRY_ABI.join('\n');
+    for (const fragment of ['latestVerdict', 'verdictAt', 'verdictCount', 'hasFailedVerdict']) {
+      expect(surface).toContain(fragment);
+    }
+  });
+
+  it('decodes a verdict into named fields rather than a positional tuple', () => {
+    const iface = new Interface(QDSR_REGISTRY_ABI as unknown as string[]);
+    const fn = iface.getFunction('latestVerdict');
+    const [output] = fn!.outputs;
+    expect(output!.components?.map((c) => c.name)).toEqual([
+      'evidenceRoot', 'resultDigest', 'engineVersionHash', 'dsrBps', 'pboBps',
+      'trials', 'observations', 'submittedAt', 'attestor', 'certified',
+    ]);
   });
 });
 

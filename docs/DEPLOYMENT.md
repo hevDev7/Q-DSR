@@ -140,12 +140,43 @@ anchored agent should carry a working Chainscan link.
 
 ### Testnet exit criteria
 
-- [ ] 15/15 validation checks pass on 16602
-- [ ] Both contracts verified on Chainscan
-- [ ] A certified agent anchored, with an explorer link
-- [ ] An insignificant agent anchored, with an explorer link
-- [ ] A mint blocked on chain for the insignificant agent
-- [ ] Gas cost per verdict recorded, so the mainnet budget is known
+- [x] 15/15 validation checks pass on 16602
+- [x] Both contracts verified on Chainscan
+- [x] A certified agent anchored, with an explorer link
+- [x] An insignificant agent anchored, with an explorer link
+- [x] A mint blocked on chain for the insignificant agent
+- [x] Gas cost per verdict recorded, so the mainnet budget is known
+
+### Completed on 2026-08-20
+
+**Deployed and verified on 0G Galileo (chain 16602):**
+
+| Contract | Address |
+|---|---|
+| `QDSRRegistry` | [`0x7c62a9035F00448116A1D30a05E23FE42200E436`](https://chainscan-galileo.0g.ai/address/0x7c62a9035F00448116A1D30a05E23FE42200E436#code) |
+| `AgenticID` | [`0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d`](https://chainscan-galileo.0g.ai/address/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d#code) |
+
+Source is verified on Chainscan — the `#code` tab shows the Solidity, not just
+the bytecode.
+
+**Verdicts anchored by the API server, each derived by the contract from the
+metrics it was sent:**
+
+| Agent | DSR / PBO (bps) | On-chain verdict | Transaction |
+|---|---|---|---|
+| Cinder Delta | 9982 / 4 | **certified** | [`0x8ffc2611…`](https://chainscan-galileo.0g.ai/tx/0x8ffc26116f67c5ede09f209ccb914f0d98a7cc22e07d2e01a3a3dbc213c287fa) |
+| Vega Lantern | 9369 / 1061 | not certified | [`0xb7f78595…`](https://chainscan-galileo.0g.ai/tx/0xb7f785957868297e5838d196c1c76bcfab9df1714c35dbfa2a892b8bc04ded73) |
+| Orbital Carry | 4725 / 3166 | not certified | [`0x5c2bac30…`](https://chainscan-galileo.0g.ai/tx/0x5c2bac30299abc34a27db7044d586862edb45724f415e6a694dd093143f6f974) |
+| Juniper Flow | 4889 / 5041 | not certified | [`0xa50e6309…`](https://chainscan-galileo.0g.ai/tx/0xa50e6309b51db2a9186ae4c5da352c436d1d5ece0b2de9385db6b5d71fdb0547) |
+
+Vega Lantern is the one to look at. It missed on both gates — DSR 0.9369 against
+0.95, PBO 0.1061 against 0.10 — and the contract refused it anyway. A real edge
+that is not yet provable at sixty trials is still not provable.
+
+**Gas.** Nine transactions in total — two deployments, three validation
+transactions and four anchored verdicts — for **0.015406 0G**, averaging
+0.001712 0G each. A mainnet deployment plus a first verdict therefore needs well
+under 0.05 0G, which is the floor `preflight` warns below.
 
 ---
 
