@@ -44,8 +44,14 @@ library AgenticIdMetadata {
         return string.concat(Strings.toString(whole), ".", string(out));
     }
 
-    /// @dev JSON string escaping. Only quotes and backslashes can appear here in
-    ///      practice, but an unescaped one would corrupt the whole document.
+    /**
+     * @dev JSON string escaping.
+     *
+     * NOT sufficient for the SVG. A JSON document and an XML document have
+     * different metacharacters, and a name is attacker-controlled: an owner who
+     * calls their agent `</text><script>…</script><text>` breaks out of the text
+     * node entirely. Use `_xmlEscape` for anything that lands inside markup.
+     */
     function _escape(string memory input) internal pure returns (string memory) {
         bytes memory raw = bytes(input);
         bytes memory out = new bytes(raw.length * 2);
@@ -64,6 +70,40 @@ library AgenticIdMetadata {
         return string(trimmed);
     }
 
+    /**
+     * @dev XML text-node escaping.
+     *
+     * The five predefined XML entities, with `&` replaced first so the ampersands
+     * introduced by the later substitutions are not themselves rewritten. Six
+     * bytes is the longest replacement (`&apos;`), which sizes the buffer.
+     */
+    function _xmlEscape(string memory input) internal pure returns (string memory) {
+        bytes memory raw = bytes(input);
+        bytes memory out = new bytes(raw.length * 6);
+        uint256 n = 0;
+
+        for (uint256 i = 0; i < raw.length; i++) {
+            bytes1 c = raw[i];
+            if (c == "&") {
+                out[n++] = "&"; out[n++] = "a"; out[n++] = "m"; out[n++] = "p"; out[n++] = ";";
+            } else if (c == "<") {
+                out[n++] = "&"; out[n++] = "l"; out[n++] = "t"; out[n++] = ";";
+            } else if (c == ">") {
+                out[n++] = "&"; out[n++] = "g"; out[n++] = "t"; out[n++] = ";";
+            } else if (c == '"') {
+                out[n++] = "&"; out[n++] = "q"; out[n++] = "u"; out[n++] = "o"; out[n++] = "t"; out[n++] = ";";
+            } else if (c == "'") {
+                out[n++] = "&"; out[n++] = "a"; out[n++] = "p"; out[n++] = "o"; out[n++] = "s"; out[n++] = ";";
+            } else if (uint8(c) >= 0x20) {
+                out[n++] = c;
+            }
+        }
+
+        bytes memory trimmed = new bytes(n);
+        for (uint256 i = 0; i < n; i++) trimmed[i] = out[i];
+        return string(trimmed);
+    }
+
     function _svg(View memory v) internal pure returns (string memory) {
         string memory accent = v.certified ? "#c8f169" : "#ed7770";
         string memory verdict = v.certified ? "CERTIFIED" : "NOT SIGNIFICANT";
@@ -74,7 +114,7 @@ library AgenticIdMetadata {
                 '<rect x="28" y="28" width="544" height="544" rx="22" fill="#0f1719" stroke="#243030"/>',
                 '<text x="60" y="96" fill="#6e7a70" font-family="monospace" font-size="15" letter-spacing="5">Q-DSR AGENTIC ID</text>',
                 '<text x="60" y="176" fill="#e9f0e4" font-family="sans-serif" font-size="40" font-weight="800">',
-                _escape(v.name),
+                _xmlEscape(v.name),
                 "</text>",
                 '<text x="60" y="214" fill="#6fe0dc" font-family="monospace" font-size="17">#',
                 Strings.toString(v.tokenId),
