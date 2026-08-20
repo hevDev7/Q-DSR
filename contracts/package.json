@@ -16,7 +16,9 @@
     "preflight:testnet": "hardhat run scripts/preflight.ts --network ogTestnet",
     "preflight:mainnet": "hardhat run scripts/preflight.ts --network ogMainnet",
     "verify:testnet": "hardhat verify --network ogTestnet",
-    "verify:mainnet": "hardhat verify --network ogMainnet"
+    "verify:mainnet": "hardhat verify --network ogMainnet",
+    "deploy-vault:testnet": "hardhat run scripts/deploy-vault.ts --network ogTestnet",
+    "deploy-vault:mainnet": "hardhat run scripts/deploy-vault.ts --network ogMainnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

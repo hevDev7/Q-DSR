@@ -317,6 +317,27 @@ It rejects wrong files and forged search spaces with actionable messages, warns 
 merely-unusual records, and passes a genuine strategy untouched — it does not, and
 cannot, prove from the CSV alone that the trades happened.
 
+### What a certified agent unlocks
+
+Certification is not the finish line — it is a credential other contracts can act
+on. [`CertifiedVault.sol`](contracts/contracts/CertifiedVault.sol) is a ~90-line
+demonstration: a capital pool that accepts deposits **only** for agents the
+registry certifies, gated in a single line —
+
+```solidity
+if (!registry.isCertified(agentId)) revert AgentNotCertified(agentId);
+```
+
+No API, no operator signature, no trust in whoever runs Q-DSR. The gate reads the
+agent's *latest* verdict, so an agent that fails re-verification stops accepting
+capital the moment its failing verdict lands. Withdrawal is never gated — the
+credential controls where new capital may flow, not whether existing capital may
+leave. Proven on Galileo: a deposit to the certified agent
+[succeeds](https://chainscan-galileo.0g.ai/tx/0x8dd35e4e1ba385ef0f16db8d5982886ca159f06bbf8f96d72eee392a119c99b5), a deposit to an overfit agent reverts, and the
+[withdrawal](https://chainscan-galileo.0g.ai/tx/0xb390fdf274ef08f8c32d1e1a68e9b5a9b9a01ad47cd08f1977078b65bc3f8dd4) returns the funds.
+
+[`CertifiedVault`](https://chainscan-galileo.0g.ai/address/0x55e86575eAD78ACa444Ca3698De101f1f95B4047#code) · verified source.
+
 ### Audit
 
 These contracts have no proxy, no pause and no upgrade path, so they were reviewed
@@ -413,7 +434,7 @@ selection bias invisible, so the engine refuses it. Both refusals are tested.
 
 Built for the 0G Bridge Buildathon by AKINDO, Wave 3.
 
-- Statistics engine, contracts, API and UI: complete and tested (294 tests)
+- Statistics engine, contracts, API and UI: complete and tested (306 tests)
 - Contracts audited before mainnet; four findings fixed, each with a regression
   test that fails against the previous code — see [AUDIT.md](docs/AUDIT.md)
 - Deployed and source-verified on 0G Galileo testnet; 20/20 deployment checks

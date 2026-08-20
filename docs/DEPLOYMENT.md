@@ -155,6 +155,7 @@ anchored agent should carry a working Chainscan link.
 |---|---|
 | `QDSRRegistry` | [`0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950`](https://chainscan-galileo.0g.ai/address/0x34e2E62b6C0AA878781109E1D7E31bfBAF8C0950#code) |
 | `AgenticID` | [`0x8559ec6DDe62450508846DB825B31f9722707687`](https://chainscan-galileo.0g.ai/address/0x8559ec6DDe62450508846DB825B31f9722707687#code) |
+| `CertifiedVault` (demo) | [`0x55e86575eAD78ACa444Ca3698De101f1f95B4047`](https://chainscan-galileo.0g.ai/address/0x55e86575eAD78ACa444Ca3698De101f1f95B4047#code) |
 
 Two earlier pairs were superseded and remain on the chain with their own valid
 tokens. Nothing about them was rolled back — an immutable contract cannot be — so
