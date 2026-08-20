@@ -7,7 +7,16 @@
     "test": "hardhat test",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network ogTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network ogMainnet",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "hardhat compile --quiet && tsc -p tsconfig.json --noEmit",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "validate:local": "hardhat run scripts/validate-deployment.ts --network localhost",
+    "validate:testnet": "hardhat run scripts/validate-deployment.ts --network ogTestnet",
+    "validate:mainnet": "hardhat run scripts/validate-deployment.ts --network ogMainnet",
+    "preflight:testnet": "hardhat run scripts/preflight.ts --network ogTestnet",
+    "preflight:mainnet": "hardhat run scripts/preflight.ts --network ogMainnet",
+    "verify:testnet": "hardhat verify --network ogTestnet",
+    "verify:mainnet": "hardhat verify --network ogMainnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
@@ -21,6 +30,10 @@
     "ethers": "^6.13.5",
     "hardhat": "^2.22.19",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "typechain": "^8.3.2",
+    "@nomicfoundation/hardhat-verify": "~2.0.8"
   }
 }

@@ -1,6 +1,8 @@
 import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomicfoundation/hardhat-network-helpers';
+import '@typechain/hardhat';
+import '@nomicfoundation/hardhat-verify';
 import type { HardhatUserConfig } from 'hardhat/config';
 
 /**
@@ -24,6 +26,13 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
+      chainId: 31337,
+    },
+    // A local node running the same contracts. Deploying and validating here
+    // first proves the deploy script and the anchoring path without spending a
+    // single testnet token.
+    localhost: {
+      url: process.env.LOCAL_RPC_URL ?? 'http://127.0.0.1:8545',
       chainId: 31337,
     },
     // 0G Galileo testnet
@@ -62,6 +71,10 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+  },
+  typechain: {
+    outDir: 'typechain-types',
+    target: 'ethers-v6',
   },
   paths: {
     sources: './contracts',
