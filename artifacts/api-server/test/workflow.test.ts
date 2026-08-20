@@ -42,15 +42,42 @@ async function sample(kind: 'overfit' | 'genuine') {
   return response.body;
 }
 
-async function runToCompletion(agentId: string, kind: 'overfit' | 'genuine') {
+/**
+ * Publishes a bundle the way a claimant's browser would.
+ *
+ * The test writes to 0G Storage itself rather than handing bytes to the server,
+ * because that is the arrangement under test: the claimant funds and publishes,
+ * the attestor reads what was published. A helper that posted the CSVs would be
+ * testing the flow we removed.
+ */
+async function publish(document: {
+  agent?: { name: string; periodsPerYear: number };
+  evidence: { returnsCsv?: string; trialsCsv?: string; selectedColumn?: string };
+}) {
+  const { LocalEvidenceStorage } = await import('@workspace/og-storage');
+  const storage = new LocalEvidenceStorage(join(dataDir, 'storage'));
+  const bytes = new TextEncoder().encode(JSON.stringify(document));
+  const { rootHash } = await storage.upload(bytes, 'evidence.json');
+  return rootHash;
+}
+
+async function publishSample(kind: 'overfit' | 'genuine') {
   const evidence = await sample(kind);
-  const started = await request(app)
-    .post(`/api/agents/${agentId}/verify`)
-    .send({
+  return publish({
+    agent: { name: 'unit-test', periodsPerYear: 252 },
+    evidence: {
       returnsCsv: evidence.returnsCsv,
       trialsCsv: evidence.trialsCsv,
       selectedColumn: evidence.selectedColumn,
-    })
+    },
+  });
+}
+
+async function runToCompletion(agentId: string, kind: 'overfit' | 'genuine') {
+  const evidenceRoot = await publishSample(kind);
+  const started = await request(app)
+    .post(`/api/agents/${agentId}/verify`)
+    .send({ evidenceRoot })
     .expect(202);
 
   const runId = started.body.id as string;
@@ -144,11 +171,13 @@ describe('verification workflow', () => {
   it('refuses a submission with no trials matrix', async () => {
     const agent = await createAgent('No Search Space');
     const evidence = await sample('overfit');
+    const evidenceRoot = await publish({
+      evidence: { returnsCsv: evidence.returnsCsv, trialsCsv: '' },
+    });
     const response = await request(app)
       .post(`/api/agents/${agent.id}/verify`)
-      .send({ returnsCsv: evidence.returnsCsv, trialsCsv: '' })
+      .send({ evidenceRoot })
       .expect(422);
-    expect(response.body.field).toBe('trialsCsv');
     expect(response.body.error).toMatch(/Probability of Backtest Overfitting/);
   });
 
@@ -156,15 +185,76 @@ describe('verification workflow', () => {
     const agent = await createAgent('Ragged Upload');
     const evidence = await sample('overfit');
     const broken = `${evidence.trialsCsv.split('\n').slice(0, 3).join('\n')}\n2023-01-05,0.1\n`;
+    const evidenceRoot = await publish({
+      evidence: { returnsCsv: evidence.returnsCsv, trialsCsv: broken },
+    });
     const response = await request(app)
       .post(`/api/agents/${agent.id}/verify`)
-      .send({ returnsCsv: evidence.returnsCsv, trialsCsv: broken })
+      .send({ evidenceRoot })
       .expect(422);
     expect(response.body.error).toMatch(/line \d+/);
   });
 
   it('404s for an unknown agent', async () => {
-    await request(app).post('/api/agents/agt_missing/verify').send({ returnsCsv: 'a', trialsCsv: 'b' }).expect(404);
+    await request(app)
+      .post('/api/agents/agt_missing/verify')
+      .send({ evidenceRoot: `0x${'11'.repeat(32)}` })
+      .expect(404);
+  });
+
+  it('refuses a root that names nothing on 0G Storage', async () => {
+    const agent = await createAgent('Phantom Root');
+    const response = await request(app)
+      .post(`/api/agents/${agent.id}/verify`)
+      .send({ evidenceRoot: `0x${'ab'.repeat(32)}` })
+      .expect(424);
+    expect(response.body.field).toBe('evidenceRoot');
+  });
+
+  it('refuses a root that is not a 0G content address', async () => {
+    const agent = await createAgent('Bad Root');
+    const response = await request(app)
+      .post(`/api/agents/${agent.id}/verify`)
+      .send({ evidenceRoot: 'not-a-root' })
+      .expect(422);
+    expect(response.body.field).toBe('evidenceRoot');
+  });
+
+  it('measures the published bytes rather than a bundle handed to it', async () => {
+    const agent = await createAgent('Root Substitution');
+    const genuine = await sample('genuine');
+    const overfit = await sample('overfit');
+
+    // Publish the overfit bundle, then submit its root alongside the genuine
+    // CSVs. Only the root is read, so the CSVs are ignored entirely.
+    const evidenceRoot = await publish({
+      evidence: {
+        returnsCsv: overfit.returnsCsv,
+        trialsCsv: overfit.trialsCsv,
+        selectedColumn: overfit.selectedColumn,
+      },
+    });
+
+    const started = await request(app)
+      .post(`/api/agents/${agent.id}/verify`)
+      .send({
+        evidenceRoot,
+        returnsCsv: genuine.returnsCsv,
+        trialsCsv: genuine.trialsCsv,
+      })
+      .expect(202);
+
+    let run;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const poll = await request(app).get(`/api/runs/${started.body.id}`).expect(200);
+      if (poll.body.status === 'completed' || poll.body.status === 'failed') {
+        run = poll.body;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    expect(run.result.verdict).toBe('insignificant');
   });
 });
 

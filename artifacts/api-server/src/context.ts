@@ -15,6 +15,8 @@ export interface AppContext {
   store: Store;
   storeKind: 'postgres' | 'memory';
   storage: EvidenceStorage;
+  /** 0G Storage indexer, handed to the browser so claimants publish to the same one. */
+  storageIndexerRpc?: string;
   chain: ChainClient;
   verification: VerificationService;
   anchoring: AnchorService;
@@ -79,6 +81,7 @@ export async function createContext(): Promise<AppContext> {
     store,
     storeKind: kind,
     storage,
+    storageIndexerRpc: config.storage.indexerRpc,
     chain,
     verification,
     anchoring,

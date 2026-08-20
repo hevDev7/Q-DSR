@@ -103,35 +103,33 @@ export class AnchorService {
       throw new AnchorConflictError('only a completed run with a result can be anchored');
     }
 
-    const document = this.buildDocument(agent, run);
-    const payload = new TextEncoder().encode(JSON.stringify(document));
+    // Nothing is uploaded here. The claimant published their evidence before
+    // verification and paid for it; this root is that bundle, already checked
+    // against its own bytes before the engine was allowed to read them.
+    //
+    // The engine's own output is not published either. It is deterministic given
+    // these bytes plus the pinned seed and version, so storing it would pay to
+    // keep something anyone can regenerate — and what pins it is `resultDigest`
+    // on chain, not a copy in storage.
+    const evidenceRoot = run.evidence.evidenceRoot;
+    if (!evidenceRoot) {
+      throw new AnchorConflictError(
+        'this run has no published evidence root, so there is nothing to anchor it to',
+      );
+    }
 
-    let anchor: AnchorRecord = { runId: run.id, status: 'pending' };
-    await this.store.upsertAnchor(anchor);
-
-    const upload = await this.storage.upload(payload, `${agent.name}-${run.id}.json`);
-    anchor = {
-      ...anchor,
-      evidenceRoot: upload.rootHash,
-      storageTxHash: upload.txHash,
-      storageMode: upload.mode,
+    let anchor: AnchorRecord = {
+      runId: run.id,
+      status: 'pending',
+      evidenceRoot,
+      storageMode: this.storage.mode,
     };
     await this.store.upsertAnchor(anchor);
-    await this.store.updateRun(run.id, {
-      evidence: { ...run.evidence, evidenceRoot: upload.rootHash },
-    });
-
-    await this.onAudit({
-      actor: 'verification-engine',
-      action: upload.mode === 'live' ? 'Evidence published to 0G Storage' : 'Evidence sealed locally',
-      detail: `${agent.name} · root ${upload.rootHash.slice(0, 18)}… · ${upload.bytes.toLocaleString()} bytes`,
-      tone: upload.mode === 'live' ? 'good' : 'neutral',
-    });
 
     try {
       const receipt = await this.chain.submitVerdict({
         agentId: agent.agentId,
-        evidenceRoot: upload.rootHash,
+        evidenceRoot,
         resultDigest: `0x${run.result.digest}`,
         engineVersion: run.result.engineVersion,
         dsrBps: toBasisPoints(run.result.dsr),

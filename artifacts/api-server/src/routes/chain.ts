@@ -17,6 +17,11 @@ export function chainRouter(ctx: AppContext): IRouter {
       agenticIdAddress: status.agenticIdAddress,
       attestorAddress: status.attestorAddress,
       storageMode: ctx.storage.mode,
+      // The browser publishes evidence itself, so it needs the indexer the
+      // attestor will read back from. Sending the server's own endpoint keeps
+      // both sides pointed at the same network rather than trusting them to be
+      // configured identically.
+      storageIndexerRpc: ctx.storageIndexerRpc,
       engineVersion: ctx.engineVersion,
     });
   });

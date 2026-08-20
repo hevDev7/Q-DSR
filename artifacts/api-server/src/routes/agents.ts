@@ -2,6 +2,10 @@ import { Router, type IRouter } from 'express';
 
 import type { AppContext } from '../context.js';
 import { accentFor, newId } from '../lib/ids.js';
+import {
+  PublishedEvidenceError,
+  fetchPublishedEvidence,
+} from '../services/published-evidence.js';
 import { toAgentDto, toRunDto } from '../services/mapper.js';
 import { buildMintIntent } from '../services/mint.js';
 import { EvidenceRequestError } from '../services/verification.js';
@@ -209,31 +213,38 @@ export function agentsRouter(ctx: AppContext): IRouter {
       return;
     }
 
-    const { returnsCsv, trialsCsv, selectedColumn, seed, bootstrapIterations, cscvSplits } =
-      req.body ?? {};
+    // A root, not a bundle. The claimant publishes their own evidence and pays
+    // for it; what arrives here is the address of those bytes on 0G Storage.
+    // Accepting the CSVs directly would let a submission name one bundle on
+    // chain while being measured against another.
+    const { evidenceRoot } = req.body ?? {};
 
-    if (typeof returnsCsv !== 'string' || returnsCsv.trim().length === 0) {
-      res.status(422).json({ error: 'returnsCsv is required', field: 'returnsCsv' });
-      return;
+    let published;
+    try {
+      published = await fetchPublishedEvidence(ctx.storage, evidenceRoot);
+    } catch (error) {
+      if (error instanceof PublishedEvidenceError) {
+        res.status(error.status).json({ error: error.message, field: error.field });
+        return;
+      }
+      throw error;
     }
-    if (typeof trialsCsv !== 'string' || trialsCsv.trim().length === 0) {
-      res.status(422).json({
-        error:
-          'trialsCsv is required — the Probability of Backtest Overfitting cannot be ' +
-          'computed without every configuration that was explored',
-        field: 'trialsCsv',
-      });
-      return;
-    }
+
+    await ctx.audit({
+      actor: agent.owner,
+      action: 'Evidence published to 0G Storage',
+      detail:
+        `${agent.name} · root ${published.evidenceRoot.slice(0, 18)}… · ` +
+        `${published.bytes.toLocaleString()} bytes · funded by the claimant`,
+      tone: 'good',
+    });
 
     try {
       const run = await ctx.verification.start(agent, {
-        returnsCsv,
-        trialsCsv,
-        selectedColumn: typeof selectedColumn === 'string' ? selectedColumn : undefined,
-        seed: Number.isFinite(seed) ? seed : undefined,
-        bootstrapIterations: Number.isFinite(bootstrapIterations) ? bootstrapIterations : undefined,
-        cscvSplits: Number.isFinite(cscvSplits) ? cscvSplits : undefined,
+        returnsCsv: published.returnsCsv,
+        trialsCsv: published.trialsCsv,
+        selectedColumn: published.selectedColumn,
+        evidenceRoot: published.evidenceRoot,
       });
       res.status(202).json(toRunDto(run, agent));
     } catch (error) {

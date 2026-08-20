@@ -19,13 +19,26 @@ export class EvidenceRequestError extends Error {
   }
 }
 
-export interface StartVerificationInput {
+/**
+ * What a submission may specify.
+ *
+ * The measurement parameters are absent on purpose. `cscvSplits` decides how PBO
+ * is computed — C(S, S/2) partitions of the trials matrix — so a claimant able to
+ * choose it could shop for a favourable reading. Measured on the overfit sample,
+ * the swing is roughly 0.25 to 0.33 against a 0.10 gate, and DSR does not move at
+ * all, so nothing overfit gets through either way. But a claimant choosing how
+ * their own claim is tested is the wrong shape regardless of how much it buys
+ * them, and pinning it costs nothing.
+ */
+export interface EvidenceCsvInput {
   returnsCsv: string;
   trialsCsv: string;
   selectedColumn?: string;
-  seed?: number;
-  bootstrapIterations?: number;
-  cscvSplits?: number;
+}
+
+export interface StartVerificationInput extends EvidenceCsvInput {
+  /** 0G Storage root the claimant published these bytes under. */
+  evidenceRoot: string;
 }
 
 export interface VerificationDefaults {
@@ -43,7 +56,7 @@ export interface VerificationDefaults {
  */
 export function buildBundle(
   agent: AgentRecord,
-  input: StartVerificationInput,
+  input: EvidenceCsvInput,
 ): EvidenceBundle {
   let returns;
   let trials;
@@ -116,13 +129,14 @@ export class VerificationService {
       status: 'queued',
       progress: 0,
       step: 'Queued',
-      seed: input.seed ?? this.defaults.seed,
-      bootstrapIterations: input.bootstrapIterations ?? this.defaults.bootstrapIterations,
-      cscvSplits: input.cscvSplits ?? this.defaults.cscvSplits,
+      seed: this.defaults.seed,
+      bootstrapIterations: this.defaults.bootstrapIterations,
+      cscvSplits: this.defaults.cscvSplits,
       evidence: {
         returnsCsv: input.returnsCsv,
         trialsCsv: input.trialsCsv,
         selectedColumn: input.selectedColumn,
+        evidenceRoot: input.evidenceRoot,
       },
       createdAt: new Date().toISOString(),
     };
@@ -175,9 +189,9 @@ export class VerificationService {
       };
 
       const { result, artifacts } = verify(bundle, {
-        seed: input.seed ?? this.defaults.seed,
-        bootstrapIterations: input.bootstrapIterations ?? this.defaults.bootstrapIterations,
-        cscvSplits: input.cscvSplits ?? this.defaults.cscvSplits,
+        seed: this.defaults.seed,
+        bootstrapIterations: this.defaults.bootstrapIterations,
+        cscvSplits: this.defaults.cscvSplits,
         // Every stochastic and structural parameter above is persisted on the run,
         // so a replication reruns the identical computation rather than a similar one.
         onPhase: (timing) => {
