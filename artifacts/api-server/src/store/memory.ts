@@ -36,7 +36,15 @@ export class MemoryStore implements Store {
   private flushTimer: NodeJS.Timeout | undefined;
   private flushing: Promise<void> = Promise.resolve();
 
-  constructor(dataDir: string) {
+  /** The most recent snapshot failure, kept so a caller can ask rather than guess. */
+  lastSnapshotError: unknown;
+
+  constructor(
+    dataDir: string,
+    private readonly onSnapshotError: (error: unknown) => void = (error) => {
+      console.error('[store] snapshot write failed; in-memory state is unaffected', error);
+    },
+  ) {
     this.snapshotPath = join(dataDir, 'store.json');
   }
 
@@ -66,13 +74,23 @@ export class MemoryStore implements Store {
     if (this.flushTimer) return;
     this.flushTimer = setTimeout(() => {
       this.flushTimer = undefined;
-      void this.write();
+      // A debounced write has no caller waiting on it, so a rejection here would
+      // be unhandled. The snapshot is a convenience; the authoritative state is
+      // in memory and still correct, so this is worth reporting, not crashing on.
+      void this.write().catch((error) => {
+        this.lastSnapshotError = error;
+        this.onSnapshotError(error);
+      });
     }, 250);
     this.flushTimer.unref?.();
   }
 
   private write(): Promise<void> {
-    this.flushing = this.flushing.then(async () => {
+    // `.catch` before `.then`, so a failed write does not poison the chain. Without
+    // it one transient error leaves `flushing` rejected and every later write is
+    // skipped for the life of the process — snapshots stop silently, which is the
+    // worst way for persistence to fail.
+    this.flushing = this.flushing.catch(() => undefined).then(async () => {
       const snapshot: Snapshot = {
         agents: [...this.agents.values()],
         runs: [...this.runs.values()],
