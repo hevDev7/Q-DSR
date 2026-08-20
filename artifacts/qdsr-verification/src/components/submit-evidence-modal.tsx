@@ -10,6 +10,11 @@ import {
   type SampleEvidenceKind,
 } from '@workspace/api-client-react';
 
+import { useGetChainConfig } from '@workspace/api-client-react';
+
+import { EvidenceUploadError, publishEvidence, type UploadPhase } from '@/lib/evidence-upload';
+import { useWallet } from '@/lib/wallet';
+
 import { Field, GhostButton, ModalShell, PrimaryButton, inputClass } from './primitives';
 
 interface Loaded {
@@ -20,6 +25,22 @@ interface Loaded {
   observations: number;
   trials: number;
 }
+
+/**
+ * What the wallet is being asked for at each step.
+ *
+ * Worth spelling out: the signature prompt here is a storage payment, not a
+ * mint, and someone who expects one and sees the other reasonably hesitates.
+ */
+const PHASE_LABELS: Record<UploadPhase, string> = {
+  idle: '',
+  packing: 'Packing the bundle…',
+  'checking-balance': 'Checking the wallet can fund this…',
+  'awaiting-signature': 'Confirm the storage payment in your wallet…',
+  publishing: 'Publishing to 0G Storage…',
+  done: 'Published',
+  failed: 'Failed',
+};
 
 function describeCsv(text: string): { rows: number; columns: number } {
   const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
@@ -47,6 +68,11 @@ export function SubmitEvidenceModal({
   const agentId = chosenId ?? agent?.id ?? agents[0]?.id ?? '';
   const [loaded, setLoaded] = useState<Loaded>();
   const [error, setError] = useState<string>();
+  const [phase, setPhase] = useState<UploadPhase>('idle');
+  const [phaseDetail, setPhaseDetail] = useState<string>();
+
+  const wallet = useWallet();
+  const chain = useGetChainConfig();
 
   const returnsInput = useRef<HTMLInputElement>(null);
   const trialsInput = useRef<HTMLInputElement>(null);
@@ -120,21 +146,83 @@ export function SubmitEvidenceModal({
     else setTrialsFile(file.name);
   };
 
-  const submit = (event: FormEvent) => {
+  /**
+   * Publish first, then ask for a verdict.
+   *
+   * The wallet making the claim pays to put the evidence on 0G Storage, and the
+   * server is handed only its address. It downloads those exact bytes, re-derives
+   * the root, and refuses if they disagree — so what gets measured is what the
+   * claimant published, not a copy sent alongside it.
+   */
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!agentId || !loaded?.returnsCsv || !loaded?.trialsCsv) return;
+
+    const selected = agents.find((candidate) => candidate.id === agentId) ?? agent;
+    const rpcUrl = chain.data?.rpcUrl;
+    const indexerRpc = chain.data?.storageIndexerRpc;
+
+    if (!rpcUrl || !indexerRpc) {
+      setError('the server has not published a 0G RPC or storage indexer to upload through');
+      return;
+    }
+
     setError(undefined);
-    startVerification.mutate({
-      agentId,
-      data: {
-        returnsCsv: loaded.returnsCsv,
-        trialsCsv: loaded.trialsCsv,
-        selectedColumn: loaded.selectedColumn,
-      },
-    });
+    setPhase('packing');
+
+    let signer;
+    try {
+      signer = await wallet.getSigner();
+    } catch (walletError) {
+      setPhase('failed');
+      setError(
+        walletError instanceof Error
+          ? walletError.message
+          : 'connect a wallet — evidence is published by the wallet making the claim',
+      );
+      return;
+    }
+
+    let evidenceRoot: string;
+    try {
+      const published = await publishEvidence({
+        document: {
+          agent: {
+            name: selected?.name ?? 'agent',
+            periodsPerYear: selected?.periodsPerYear ?? 252,
+          },
+          evidence: {
+            returnsCsv: loaded.returnsCsv,
+            trialsCsv: loaded.trialsCsv,
+            selectedColumn: loaded.selectedColumn ?? '',
+          },
+        },
+        signer,
+        evmRpc: rpcUrl,
+        indexerRpc,
+        onProgress: (progress) => {
+          setPhase(progress.phase);
+          setPhaseDetail(progress.detail);
+        },
+      });
+      evidenceRoot = published.rootHash;
+    } catch (uploadError) {
+      setPhase('failed');
+      setError(
+        uploadError instanceof EvidenceUploadError
+          ? uploadError.message
+          : uploadError instanceof Error
+            ? uploadError.message
+            : 'publishing the evidence failed',
+      );
+      return;
+    }
+
+    startVerification.mutate({ agentId, data: { evidenceRoot } });
   };
 
-  const ready = Boolean(agentId && loaded?.returnsCsv && loaded?.trialsCsv);
+  const busy = phase !== 'idle' && phase !== 'done' && phase !== 'failed';
+  const ready = Boolean(agentId && loaded?.returnsCsv && loaded?.trialsCsv) && !busy;
 
   return (
     <ModalShell onClose={onClose} testId="dialog-submit-evidence" width="max-w-[640px]">
@@ -263,6 +351,22 @@ export function SubmitEvidenceModal({
             </div>
           )}
 
+          {busy && (
+            <div
+              data-testid="text-publish-phase"
+              className="rounded-lg border border-[#3a4a3d] bg-[#131c1b] px-3 py-2.5 font-mono text-[10px] leading-5 text-[#9fb8a4]"
+            >
+              <div className="flex items-center gap-2 text-[#c7e59a]">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#91bd59]" />
+                {PHASE_LABELS[phase]}
+              </div>
+              {phaseDetail && <div className="mt-1 text-[#758278]">{phaseDetail}</div>}
+              <div className="mt-1.5 text-[#758278]">
+                evidence is published by your wallet, not by the server
+              </div>
+            </div>
+          )}
+
           {error && (
             <div
               data-testid="text-submit-error"
@@ -283,7 +387,11 @@ export function SubmitEvidenceModal({
             testId="button-start-verification"
             disabled={!ready || startVerification.isPending}
           >
-            {startVerification.isPending ? 'Submitting…' : 'Run verification'}
+            {busy
+              ? PHASE_LABELS[phase]
+              : startVerification.isPending
+                ? 'Submitting…'
+                : 'Publish & verify'}
           </PrimaryButton>
         </div>
       </form>

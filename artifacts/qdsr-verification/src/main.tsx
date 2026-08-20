@@ -16,3 +16,11 @@ createRoot(document.getElementById('root')!, {
     <App />
   </ErrorBoundary>,
 );
+
+// Dev-only: lets the merkle root of the browser SDK be compared against the
+// server's in a real browser. Stripped from production builds by the guard.
+if (import.meta.env.DEV) {
+  void import('./lib/evidence-upload').then((m) => {
+    (window as unknown as Record<string, unknown>).__probeMerkleRoot = m.__probeMerkleRoot;
+  });
+}
