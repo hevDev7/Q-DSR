@@ -273,3 +273,123 @@ describe('QDSRRegistry', () => {
     });
   });
 });
+
+/** Regressions from the pre-mainnet audit. */
+describe('QDSRRegistry — audit regressions', () => {
+  describe('hasFailedVerdict does not walk the history', () => {
+    it('costs the same after fifty verdicts as after one', async () => {
+      const { registry, attestor, agentId } = await deploy();
+
+      await submit(registry, attestor, agentId, OVERFIT);
+      const first = await registry.hasFailedVerdict.estimateGas(agentId);
+
+      // History is append-only with no cap. The old implementation scanned it
+      // linearly, so an agent could push its own rejection out of reach of any
+      // on-chain caller simply by resubmitting.
+      for (let i = 0; i < 49; i++) {
+        await submit(registry, attestor, agentId, OVERFIT, {
+          resultDigest: ethers.keccak256(ethers.toUtf8Bytes(`digest-${i}`)),
+        });
+      }
+
+      const later = await registry.hasFailedVerdict.estimateGas(agentId);
+
+      expect(await registry.verdictCount(agentId)).to.equal(50n);
+      expect(later).to.equal(first);
+    });
+
+    it('still reports a failure that a later pass does not erase', async () => {
+      const { registry, attestor, agentId } = await deploy();
+
+      await submit(registry, attestor, agentId, OVERFIT);
+      await submit(registry, attestor, agentId, CERTIFIED, {
+        resultDigest: ethers.keccak256(ethers.toUtf8Bytes('second-run')),
+      });
+
+      // Certified now, but the rejection stays on the record — that permanence
+      // is the product.
+      expect(await registry.isCertified(agentId)).to.equal(true);
+      expect(await registry.hasFailedVerdict(agentId)).to.equal(true);
+    });
+
+    it('reports no failure for an agent that never failed', async () => {
+      const { registry, attestor, agentId } = await deploy();
+
+      await submit(registry, attestor, agentId, CERTIFIED);
+
+      expect(await registry.hasFailedVerdict(agentId)).to.equal(false);
+    });
+
+    it('reports no failure for an agent nobody has submitted', async () => {
+      const { registry } = await deploy();
+
+      expect(
+        await registry.hasFailedVerdict(ethers.keccak256(ethers.toUtf8Bytes('nobody'))),
+      ).to.equal(false);
+    });
+  });
+
+  describe('ownership handover takes two steps', () => {
+    it('does not move on nomination alone', async () => {
+      const { registry, owner, outsider } = await deploy();
+
+      // A single-step transfer to an address that cannot transact would strand
+      // setAttestor forever — this contract is immutable and has no recovery.
+      await expect(registry.transferOwnership(outsider.address)).to.emit(
+        registry,
+        'OwnershipTransferStarted',
+      );
+
+      expect(await registry.owner()).to.equal(owner.address);
+      expect(await registry.pendingOwner()).to.equal(outsider.address);
+    });
+
+    it('keeps the incumbent’s powers until the nominee accepts', async () => {
+      const { registry, owner, outsider, attestor } = await deploy();
+
+      await registry.transferOwnership(outsider.address);
+
+      await expect(registry.setAttestor(attestor.address, false)).to.emit(
+        registry,
+        'AttestorUpdated',
+      );
+      await expect(
+        registry.connect(outsider).setAttestor(owner.address, true),
+      ).to.be.revertedWithCustomError(registry, 'NotOwner');
+    });
+
+    it('moves once the nominee accepts', async () => {
+      const { registry, outsider } = await deploy();
+
+      await registry.transferOwnership(outsider.address);
+      await expect(registry.connect(outsider).acceptOwnership()).to.emit(
+        registry,
+        'OwnershipTransferred',
+      );
+
+      expect(await registry.owner()).to.equal(outsider.address);
+      expect(await registry.pendingOwner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it('lets nobody else accept', async () => {
+      const { registry, attestor, outsider } = await deploy();
+
+      await registry.transferOwnership(outsider.address);
+      await expect(
+        registry.connect(attestor).acceptOwnership(),
+      ).to.be.revertedWithCustomError(registry, 'NotPendingOwner');
+    });
+
+    it('lets the owner withdraw a nomination by naming someone else', async () => {
+      const { registry, attestor, outsider } = await deploy();
+
+      await registry.transferOwnership(outsider.address);
+      await registry.transferOwnership(attestor.address);
+
+      await expect(
+        registry.connect(outsider).acceptOwnership(),
+      ).to.be.revertedWithCustomError(registry, 'NotPendingOwner');
+      expect(await registry.pendingOwner()).to.equal(attestor.address);
+    });
+  });
+});

@@ -412,3 +412,244 @@ describe('AgenticID', () => {
     });
   });
 });
+
+/**
+ * Regressions from the pre-mainnet audit. Each test failed against the
+ * contracts as they stood before the fix; the comments record what the old
+ * behaviour actually was, so a future refactor that reintroduces it is caught
+ * with an explanation rather than a bare assertion failure.
+ */
+describe('AgenticID — audit regressions', () => {
+  const decodeTokenUri = (uri: string) => {
+    expect(uri.startsWith('data:application/json;base64,')).to.equal(true);
+    const json = Buffer.from(uri.split(',')[1]!, 'base64').toString('utf8');
+    return JSON.parse(json) as { name: string; image: string };
+  };
+
+  const decodeSvg = (image: string) => {
+    expect(image.startsWith('data:image/svg+xml;base64,')).to.equal(true);
+    return Buffer.from(image.split(',')[1]!, 'base64').toString('utf8');
+  };
+
+  describe('markup injection through the agent name', () => {
+    it('cannot break out of the SVG text node', async () => {
+      const { agentic, holder, certifiedAgent } = await deploy();
+
+      // The old _escape handled only " and \ — the JSON metacharacters. Fed
+      // into an XML context it let this name close the text node and open a
+      // script tag that wallets and explorers would then render.
+      const payload = '</text><script>alert(1)</script><text>';
+
+      await agentic.mint(
+        holder.address,
+        certifiedAgent,
+        { ...META, name: payload, image: '' },
+        METADATA_HASH,
+      );
+
+      const svg = decodeSvg(decodeTokenUri(await agentic.tokenURI(1)).image);
+
+      expect(svg).to.not.include('<script');
+      expect(svg).to.not.include(payload);
+      expect(svg).to.include('&lt;script&gt;');
+    });
+
+    it('escapes every predefined XML entity, ampersand first', async () => {
+      const { agentic, holder, certifiedAgent } = await deploy();
+
+      await agentic.mint(
+        holder.address,
+        certifiedAgent,
+        { ...META, name: `&<>"'`, image: '' },
+        METADATA_HASH,
+      );
+
+      const svg = decodeSvg(decodeTokenUri(await agentic.tokenURI(1)).image);
+
+      // &amp; must not itself become &amp;amp; — the ampersand is replaced
+      // before the substitutions that introduce new ampersands.
+      expect(svg).to.include('&amp;&lt;&gt;&quot;&apos;');
+      expect(svg).to.not.include('&amp;amp;');
+    });
+
+    it('still escapes the name for JSON, which is a different context', async () => {
+      const { agentic, holder, certifiedAgent } = await deploy();
+
+      await agentic.mint(
+        holder.address,
+        certifiedAgent,
+        { ...META, name: 'Vega "Lantern" \\ v2', image: '' },
+        METADATA_HASH,
+      );
+
+      // Parsing at all is the assertion: an unescaped quote would have made
+      // the document invalid JSON.
+      // The library appends the token number to the display name.
+      expect(decodeTokenUri(await agentic.tokenURI(1)).name).to.equal(
+        'Vega "Lantern" \\ v2 #1',
+      );
+    });
+
+    it('drops control characters rather than emitting them raw', async () => {
+      const { agentic, holder, certifiedAgent } = await deploy();
+
+      // A raw newline inside a JSON string is a parse error, and a tokenURI
+      // that no wallet can parse is unfixable on an immutable contract. Both
+      // escapers drop these instead.
+      await agentic.mint(
+        holder.address,
+        certifiedAgent,
+        { ...META, name: 'Vega\nLantern\tv2', image: '' },
+        METADATA_HASH,
+      );
+
+      const decoded = decodeTokenUri(await agentic.tokenURI(1));
+      expect(decoded.name).to.equal('VegaLanternv2 #1');
+      expect(decodeSvg(decoded.image)).to.include('VegaLanternv2');
+    });
+  });
+
+  describe('the oracle proof is bound to the token', () => {
+    it('rejects a transfer proving a different agent', async () => {
+      const { agentic, registry, holder, recipient, certifiedAgent, proofFor } =
+        await deploy();
+
+      // A second certified agent. Its proof is perfectly valid — the oracle
+      // accepts it — it simply is not this token's agent.
+      const otherAgent = ethers.keccak256(ethers.toUtf8Bytes('another-agent'));
+      await registry.submitVerdict(
+        otherAgent,
+        EVIDENCE_ROOT,
+        RESULT_DIGEST,
+        ENGINE,
+        ...CERTIFIED,
+      );
+
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+
+      await expect(
+        agentic
+          .connect(holder)
+          .transfer(
+            holder.address,
+            recipient.address,
+            1,
+            ethers.toUtf8Bytes('sealed'),
+            proofFor(otherAgent),
+          ),
+      ).to.be.revertedWithCustomError(agentic, 'InvalidProof');
+    });
+
+    it('rejects a clone proving a different agent', async () => {
+      const { agentic, registry, holder, recipient, certifiedAgent, proofFor } =
+        await deploy();
+
+      const otherAgent = ethers.keccak256(ethers.toUtf8Bytes('another-agent'));
+      await registry.submitVerdict(
+        otherAgent,
+        EVIDENCE_ROOT,
+        RESULT_DIGEST,
+        ENGINE,
+        ...CERTIFIED,
+      );
+
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+
+      await expect(
+        agentic
+          .connect(holder)
+          .clone(recipient.address, 1, ethers.toUtf8Bytes('sealed'), proofFor(otherAgent)),
+      ).to.be.revertedWithCustomError(agentic, 'InvalidProof');
+    });
+
+    it('rejects a proof that is not a bytes32 at all', async () => {
+      const { agentic, holder, recipient, certifiedAgent } = await deploy();
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+
+      await expect(
+        agentic
+          .connect(holder)
+          .transfer(
+            holder.address,
+            recipient.address,
+            1,
+            ethers.toUtf8Bytes('sealed'),
+            '0xdeadbeef',
+          ),
+      ).to.be.revertedWithCustomError(agentic, 'InvalidProof');
+    });
+
+    it('still accepts the token’s own agent', async () => {
+      const { agentic, holder, recipient, certifiedAgent, proofFor } = await deploy();
+      await agentic.mint(holder.address, certifiedAgent, META, METADATA_HASH);
+
+      await expect(
+        agentic
+          .connect(holder)
+          .transfer(
+            holder.address,
+            recipient.address,
+            1,
+            ethers.toUtf8Bytes('sealed'),
+            proofFor(certifiedAgent),
+          ),
+      ).to.emit(agentic, 'SealedTransfer');
+    });
+  });
+
+  describe('state is written before the receiver callback', () => {
+    it('shows a contract receiver the finished record', async () => {
+      const { agentic, certifiedAgent } = await deploy();
+
+      const probe = await (
+        await ethers.getContractFactory('StateProbeReceiver')
+      ).deploy();
+      await probe.waitForDeployment();
+
+      await agentic.mint(await probe.getAddress(), certifiedAgent, META, METADATA_HASH);
+
+      expect(await probe.probed()).to.equal(true);
+
+      // Both were zero before the fix: _safeMint ran ahead of the writes, so a
+      // receiver that indexed the token during its own callback stored nothing.
+      expect(await probe.seenAgentId()).to.equal(certifiedAgent);
+      expect(await probe.seenReverseLookup()).to.equal(1n);
+    });
+  });
+
+  describe('ownership handover takes two steps', () => {
+    it('does not move on nomination alone', async () => {
+      const { agentic, owner, outsider } = await deploy();
+
+      await expect(agentic.transferOwnership(outsider.address)).to.emit(
+        agentic,
+        'OwnershipTransferStarted',
+      );
+
+      expect(await agentic.owner()).to.equal(owner.address);
+      expect(await agentic.pendingOwner()).to.equal(outsider.address);
+    });
+
+    it('moves once the nominee accepts', async () => {
+      const { agentic, outsider } = await deploy();
+
+      await agentic.transferOwnership(outsider.address);
+      await expect(agentic.connect(outsider).acceptOwnership()).to.emit(
+        agentic,
+        'OwnershipTransferred',
+      );
+
+      expect(await agentic.owner()).to.equal(outsider.address);
+      expect(await agentic.pendingOwner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it('lets nobody else accept', async () => {
+      const { agentic, recipient, outsider } = await deploy();
+
+      await agentic.transferOwnership(outsider.address);
+      await expect(
+        agentic.connect(recipient).acceptOwnership(),
+      ).to.be.revertedWithCustomError(agentic, 'NotPendingOwner');
+    });
+  });
+});
