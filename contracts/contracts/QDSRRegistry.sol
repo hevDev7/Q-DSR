@@ -225,6 +225,22 @@ contract QDSRRegistry is IOracle, IQDSRRegistry {
         return _history[agentId][length - 1].certified;
     }
 
+    /**
+     * @notice The headline numbers of the most recent verdict.
+     * @dev Returns zeroes for an agent with no verdict rather than reverting, so a
+     *      caller rendering a token does not have to guard every read.
+     */
+    function verdictMetrics(bytes32 agentId)
+        external
+        view
+        returns (uint32 dsrBps, uint32 pboBps, uint32 trials, uint32 observations)
+    {
+        uint256 length = _history[agentId].length;
+        if (length == 0) return (0, 0, 0, 0);
+        Verdict storage v = _history[agentId][length - 1];
+        return (v.dsrBps, v.pboBps, v.trials, v.observations);
+    }
+
     /// @notice True if the agent has ever been recorded as statistically insignificant.
     function hasFailedVerdict(bytes32 agentId) external view returns (bool) {
         Verdict[] storage history = _history[agentId];

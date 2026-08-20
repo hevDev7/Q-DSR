@@ -14,6 +14,11 @@ export interface AgentRecord {
   periodsPerYear: number;
   status: AgentStatus;
   accent: string;
+  /** Shown on the Agentic ID, so it is worth writing for a human rather than a log. */
+  description?: string;
+  /** 0G Storage root of the artwork, and the gateway URL a wallet can fetch it from. */
+  imageRoot?: string;
+  imageUrl?: string;
   latestRunId?: string;
   createdAt: string;
   updatedAt: string;

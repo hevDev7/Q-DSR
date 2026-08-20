@@ -10,12 +10,13 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { UploadImageResultStorageMode } from './uploadImageResultStorageMode';
 
-export interface CreateAgentRequest {
-  name: string;
-  family: string;
-  owner: string;
-  periodsPerYear?: number;
-  /** Shown on the Agentic ID once minted. */
-  description?: string;
+export interface UploadImageResult {
+  /** 0G Storage merkle root. */
+  root: string;
+  /** Gateway URL. Absent when storage is running locally. */
+  url?: string;
+  bytes: number;
+  storageMode: UploadImageResultStorageMode;
 }

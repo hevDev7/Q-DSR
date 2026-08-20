@@ -74,3 +74,26 @@ describe('createEvidenceStorage', () => {
     expect(storage.mode).toBe('local');
   });
 });
+
+describe('gatewayUrl', () => {
+  it('is absent in local mode, because nothing has been published', async () => {
+    const storage = new LocalEvidenceStorage(dir);
+    expect(storage.gatewayUrl()).toBeUndefined();
+  });
+
+  it('points at the indexer, which doubles as an HTTP gateway', async () => {
+    const { OgEvidenceStorage } = await import('../src/live.js');
+    const storage = new OgEvidenceStorage({
+      indexerRpc: 'https://indexer-storage-testnet-turbo.0g.ai/',
+      evmRpc: 'https://evmrpc-testnet.0g.ai',
+      privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+      cacheDir: dir,
+    });
+    const root = `0x${'ab'.repeat(32)}`;
+    expect(storage.gatewayUrl(root)).toBe(
+      `https://indexer-storage-testnet-turbo.0g.ai/file?root=${root}`,
+    );
+    // The name is what a browser and an explorer use to infer the file type.
+    expect(storage.gatewayUrl(root, 'cinder delta.png')).toContain('&name=cinder%20delta.png');
+  });
+});

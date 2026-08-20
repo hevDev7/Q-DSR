@@ -46,6 +46,11 @@ export class LocalEvidenceStorage implements EvidenceStorage {
     }
   }
 
+  /** Nothing is published in local mode, so there is no URL to hand out. */
+  gatewayUrl(): undefined {
+    return undefined;
+  }
+
   private pathFor(rootHash: string): string {
     // Root hashes are hex from the SDK; strip the prefix so the name is a plain file.
     return join(this.dir, `${rootHash.replace(/^0x/, '')}.bin`);

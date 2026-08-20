@@ -60,6 +60,12 @@ function check(label: string, ok: boolean, detail: string): void {
 // numbers the engine produced for the demo fleet, so the validation exercises
 // the same values the protocol actually writes.
 const CERTIFIED = { dsrBps: 9_982n, pboBps: 4n, trials: 60n, observations: 756n };
+const SCRATCH_METADATA = {
+  name: 'Q-DSR validation probe',
+  description: 'Scratch agent written by validate-deployment.',
+  image: '',
+  evidenceURI: '0g://storage/validation-probe',
+};
 const OVERFIT = { dsrBps: 4_889n, pboBps: 5_041n, trials: 60n, observations: 756n };
 const ENGINE = 'qdsr-core/1.0.0';
 
@@ -84,6 +90,9 @@ async function main(): Promise<void> {
 
   const code = await ethers.provider.getCode(registryAddress);
   check('registry has bytecode at that address', code !== '0x', `${(code.length - 2) / 2} bytes`);
+
+  const erc7857 = await agentic.ERC7857_INTERFACE_ID();
+  check('advertises the ERC-7857 interface', await agentic.supportsInterface(erc7857), erc7857);
 
   const minDsr = await registry.MIN_DSR_BPS();
   const maxPbo = await registry.MAX_PBO_BPS();
@@ -145,7 +154,7 @@ async function main(): Promise<void> {
     // 2. minting must revert while uncertified
     let mintBlocked = false;
     try {
-      await agentic.mint.staticCall(signer.address, agentId, '0g://scratch', resultDigest);
+      await agentic.mint.staticCall(signer.address, agentId, SCRATCH_METADATA, resultDigest);
     } catch {
       mintBlocked = true;
     }
@@ -175,12 +184,28 @@ async function main(): Promise<void> {
     );
 
     // 6. minting now succeeds
-    const mintTx = await agentic.mint(signer.address, agentId, '0g://scratch', resultDigest);
+    const mintTx = await agentic.mint(signer.address, agentId, SCRATCH_METADATA, resultDigest);
     const mintReceipt = await mintTx.wait();
     const tokenId = await agentic.tokenIdOfAgent(agentId);
     check('mint succeeds once certified', tokenId > 0n, `tokenId ${tokenId}, block ${mintReceipt?.blockNumber}`);
 
     check('the minted token reports its certification', await agentic.isStillCertified(tokenId), 'true');
+
+    // The metadata is built in the contract, so a broken template is a deployment
+    // fault rather than something a client can work around.
+    const uri: string = await agentic.tokenURI(tokenId);
+    const json = JSON.parse(Buffer.from(uri.split(',')[1] ?? '', 'base64').toString('utf8'));
+    check(
+      'tokenURI is on-chain JSON carrying the verdict',
+      uri.startsWith('data:application/json;base64,') &&
+        json.attributes?.some((a: { trait_type: string }) => a.trait_type === 'Deflated Sharpe Ratio'),
+      `${json.name} · ${json.attributes?.[1]?.value}`,
+    );
+    check(
+      'an unsupplied image falls back to a generated SVG',
+      String(json.image).startsWith('data:image/svg+xml;base64,'),
+      `${Math.round(String(json.image).length / 1024)} KB inline`,
+    );
 
     if (explorer) {
       console.log(`\n  transactions:`);

@@ -11,11 +11,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateAgentRequest {
+/**
+ * The struct AgenticID.mint expects.
+ */
+export interface AgentMetadata {
   name: string;
-  family: string;
-  owner: string;
-  periodsPerYear?: number;
-  /** Shown on the Agentic ID once minted. */
-  description?: string;
+  description: string;
+  /** Empty makes the contract generate an SVG from the agent's metrics. */
+  image: string;
+  evidenceURI: string;
 }

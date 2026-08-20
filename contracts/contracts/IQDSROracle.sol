@@ -18,4 +18,14 @@ interface IOracle {
  */
 interface IQDSRRegistry {
     function isCertified(bytes32 agentId) external view returns (bool);
+
+    /**
+     * @notice The headline numbers of an agent's most recent verdict.
+     * @dev A narrow view rather than the whole Verdict struct, so a consumer does
+     *      not have to depend on the registry's storage layout to render a token.
+     */
+    function verdictMetrics(bytes32 agentId)
+        external
+        view
+        returns (uint32 dsrBps, uint32 pboBps, uint32 trials, uint32 observations);
 }

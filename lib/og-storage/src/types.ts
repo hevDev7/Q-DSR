@@ -21,6 +21,16 @@ export interface EvidenceStorage {
   upload(data: Uint8Array, name: string): Promise<UploadResult>;
   download(rootHash: string): Promise<Uint8Array>;
   has(rootHash: string): Promise<boolean>;
+  /**
+   * A URL a browser can fetch this payload from, or undefined when nothing has
+   * been published.
+   *
+   * The indexer doubles as an HTTP gateway. It sends
+   * `Content-Disposition: attachment`, which stops a top-level navigation from
+   * rendering inline but does not affect subresource loads — an `<img>` pointing
+   * here displays normally, which is what makes it usable as NFT artwork.
+   */
+  gatewayUrl(rootHash: string, name?: string): string | undefined;
 }
 
 export interface StorageConfig {

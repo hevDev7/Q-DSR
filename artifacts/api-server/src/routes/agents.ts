@@ -39,7 +39,7 @@ export function agentsRouter(ctx: AppContext): IRouter {
   });
 
   router.post('/agents', async (req, res) => {
-    const { name, family, owner, periodsPerYear } = req.body ?? {};
+    const { name, family, owner, periodsPerYear, description } = req.body ?? {};
 
     if (typeof name !== 'string' || name.trim().length === 0) {
       res.status(422).json({ error: 'name is required', field: 'name' });
@@ -81,6 +81,7 @@ export function agentsRouter(ctx: AppContext): IRouter {
       periodsPerYear: Number.isFinite(periodsPerYear) && periodsPerYear > 0 ? periodsPerYear : 252,
       status: 'unverified',
       accent: accentFor(agentId),
+      description: typeof description === 'string' && description.trim() ? description.trim() : undefined,
       createdAt: now,
       updatedAt: now,
     });
@@ -112,6 +113,76 @@ export function agentsRouter(ctx: AppContext): IRouter {
 
     const tokenId = await ctx.mintLookup.tokenIdOf(agent.agentId);
     res.json({ ...toAgentDto(agent, latest, anchor, tokenId), runs: runDtos });
+  });
+
+  // Two megabytes. Artwork this size already renders well, and every byte is
+  // published to 0G Storage and paid for.
+  const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
+
+  router.post('/agents/:agentId/image', async (req, res) => {
+    const agent = await ctx.store.getAgent(req.params.agentId!);
+    if (!agent) {
+      res.status(404).json({ error: 'agent not found' });
+      return;
+    }
+
+    const { contentType, dataBase64, filename } = req.body ?? {};
+
+    if (typeof contentType !== 'string' || !ALLOWED_IMAGE_TYPES.includes(contentType)) {
+      res.status(422).json({
+        error: `contentType must be one of ${ALLOWED_IMAGE_TYPES.join(', ')}`,
+        field: 'contentType',
+      });
+      return;
+    }
+    if (typeof dataBase64 !== 'string' || dataBase64.length === 0) {
+      res.status(422).json({ error: 'dataBase64 is required', field: 'dataBase64' });
+      return;
+    }
+
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(dataBase64, 'base64');
+    } catch {
+      res.status(422).json({ error: 'dataBase64 is not valid base64', field: 'dataBase64' });
+      return;
+    }
+    if (bytes.byteLength === 0) {
+      res.status(422).json({ error: 'the decoded image is empty', field: 'dataBase64' });
+      return;
+    }
+    if (bytes.byteLength > MAX_IMAGE_BYTES) {
+      res.status(422).json({
+        error: `image is ${(bytes.byteLength / 1024 / 1024).toFixed(2)} MB; the limit is 2 MB`,
+        field: 'dataBase64',
+      });
+      return;
+    }
+
+    // The extension is how a browser and an explorer infer the type from the
+    // gateway URL, so it is derived from contentType rather than trusted from
+    // whatever the client called the file.
+    const extension = contentType === 'image/svg+xml' ? 'svg' : contentType.split('/')[1];
+    const name = `${agent.name.replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase()}.${extension}`;
+
+    const upload = await ctx.storage.upload(new Uint8Array(bytes), filename ?? name);
+    const url = ctx.storage.gatewayUrl(upload.rootHash, name);
+
+    await ctx.store.updateAgent(agent.id, { imageRoot: upload.rootHash, imageUrl: url });
+    await ctx.audit({
+      actor: agent.owner,
+      action: url ? 'Artwork published to 0G Storage' : 'Artwork sealed locally',
+      detail: `${agent.name} · ${upload.rootHash.slice(0, 18)}… · ${bytes.byteLength.toLocaleString()} bytes`,
+      tone: url ? 'good' : 'neutral',
+    });
+
+    res.json({
+      root: upload.rootHash,
+      url,
+      bytes: bytes.byteLength,
+      storageMode: upload.mode,
+    });
   });
 
   router.get('/agents/:agentId/mint-intent', async (req, res) => {

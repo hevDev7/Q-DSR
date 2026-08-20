@@ -153,8 +153,24 @@ anchored agent should carry a working Chainscan link.
 
 | Contract | Address |
 |---|---|
-| `QDSRRegistry` | [`0x7c62a9035F00448116A1D30a05E23FE42200E436`](https://chainscan-galileo.0g.ai/address/0x7c62a9035F00448116A1D30a05E23FE42200E436#code) |
-| `AgenticID` | [`0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d`](https://chainscan-galileo.0g.ai/address/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d#code) |
+| `QDSRRegistry` | [`0xaf239cCe0eD261D8B8A097C663fA8C04814c2797`](https://chainscan-galileo.0g.ai/address/0xaf239cCe0eD261D8B8A097C663fA8C04814c2797#code) |
+| `AgenticID` | [`0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc`](https://chainscan-galileo.0g.ai/address/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc#code) |
+
+An earlier pair — registry `0x7c62a903…`, Agentic ID `0x5dfD3d47…` — was superseded
+when the mint signature changed to carry on-chain metadata. It remains on the chain
+with its own valid tokens; the addresses above are the current ones.
+
+**0G Storage is live.** Evidence bundles and token artwork are published rather
+than sealed locally, which is what makes the audit claim real: the root hash in a
+verdict resolves to bytes anyone can fetch.
+
+    OG_STORAGE_INDEXER_RPC=https://indexer-storage-testnet-turbo.0g.ai
+
+The indexer doubles as an HTTP gateway at `/file?root=<root>&name=<filename>`. It
+returns the correct `Content-Type` and sets `Content-Disposition: attachment`,
+which blocks a top-level navigation from rendering inline but does not affect an
+`<img>` — verified in a browser, and it is what lets token artwork live on 0G
+Storage instead of in a data URI.
 
 Source is verified on Chainscan — the `#code` tab shows the Solidity, not just
 the bytecode.

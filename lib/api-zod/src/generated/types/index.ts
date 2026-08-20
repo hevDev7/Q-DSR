@@ -13,6 +13,7 @@
 
 export * from './agent';
 export * from './agentDetail';
+export * from './agentMetadata';
 export * from './agentMetrics';
 export * from './agentStatus';
 export * from './anchor';
@@ -44,6 +45,9 @@ export * from './sampleEvidence';
 export * from './sampleEvidenceKind';
 export * from './sampleEvidenceRequest';
 export * from './sampleEvidenceRequestKind';
+export * from './uploadImageRequest';
+export * from './uploadImageResult';
+export * from './uploadImageResultStorageMode';
 export * from './validationErrorResponse';
 export * from './verdict';
 export * from './verificationRequest';

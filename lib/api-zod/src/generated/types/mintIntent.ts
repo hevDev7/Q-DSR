@@ -10,9 +10,11 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { AgentMetadata } from './agentMetadata';
 import type { Verdict } from './verdict';
 
 export interface MintIntent {
+  metadata?: AgentMetadata;
   ready: boolean;
   /** Why a mint would fail right now. Absent when ready. */
   blockedReason?: string;

@@ -21,6 +21,7 @@ export class OgEvidenceStorage implements EvidenceStorage {
   readonly mode: StorageMode = 'live';
 
   private readonly indexer: Indexer;
+  private readonly indexerRpc: string;
   private readonly signer: ethers.Wallet;
   private readonly evmRpc: string;
   private readonly expectedReplica: number;
@@ -28,6 +29,7 @@ export class OgEvidenceStorage implements EvidenceStorage {
 
   constructor(config: Required<Pick<StorageConfig, 'indexerRpc' | 'evmRpc' | 'privateKey' | 'cacheDir'>> & Pick<StorageConfig, 'expectedReplica'>) {
     this.indexer = new Indexer(config.indexerRpc);
+    this.indexerRpc = config.indexerRpc.replace(/\/+$/, '');
     this.evmRpc = config.evmRpc;
     this.signer = new ethers.Wallet(config.privateKey, new ethers.JsonRpcProvider(config.evmRpc));
     this.expectedReplica = config.expectedReplica ?? 1;
@@ -77,6 +79,11 @@ export class OgEvidenceStorage implements EvidenceStorage {
     } finally {
       await rm(scratch, { force: true });
     }
+  }
+
+  gatewayUrl(rootHash: string, name?: string): string {
+    const suffix = name ? `&name=${encodeURIComponent(name)}` : '';
+    return `${this.indexerRpc}/file?root=${rootHash}${suffix}`;
   }
 
   async has(rootHash: string): Promise<boolean> {

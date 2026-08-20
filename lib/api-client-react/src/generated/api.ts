@@ -43,6 +43,8 @@ import type {
   Run,
   SampleEvidence,
   SampleEvidenceRequest,
+  UploadImageRequest,
+  UploadImageResult,
   ValidationErrorResponse,
   VerificationRequest
 } from './api.schemas';
@@ -455,6 +457,84 @@ export const useStartVerification = <TError = ErrorType<NotFoundResponse | Valid
         TContext
       > => {
       return useMutation(getStartVerificationMutationOptions(options));
+    }
+
+export const getUploadAgentImageUrl = (agentId: string,) => {
+
+
+
+
+  return `/api/agents/${agentId}/image`
+}
+
+/**
+ * The image is uploaded to 0G Storage and referenced from the token's
+ * on-chain metadata by its gateway URL, so a wallet or explorer can render it
+ * without this server being involved.
+ *
+ * Optional. With no image the contract draws an SVG from the agent's own
+ * certification numbers, so a token always renders.
+ * @summary Publish artwork for an agent's Agentic ID to 0G Storage
+ */
+export const uploadAgentImage = async (agentId: string,
+    uploadImageRequest: UploadImageRequest, options?: Parameters<typeof customFetch>[1]): Promise<UploadImageResult> => {
+
+  return customFetch<UploadImageResult>(getUploadAgentImageUrl(agentId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(uploadImageRequest)
+  }
+);}
+
+
+
+
+
+export const getUploadAgentImageMutationOptions = <TError = ErrorType<NotFoundResponse | ValidationErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadAgentImage>>, TError,{agentId: string;data: BodyType<UploadImageRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadAgentImage>>, TError,{agentId: string;data: BodyType<UploadImageRequest>}, TContext> => {
+
+const mutationKey = ['uploadAgentImage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadAgentImage>>, {agentId: string;data: BodyType<UploadImageRequest>}> = (props) => {
+          const {agentId,data} = props ?? {};
+
+          return  uploadAgentImage(agentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadAgentImageMutationResult = NonNullable<Awaited<ReturnType<typeof uploadAgentImage>>>
+    export type UploadAgentImageMutationBody = BodyType<UploadImageRequest>
+    export type UploadAgentImageMutationError = ErrorType<NotFoundResponse | ValidationErrorResponse>
+
+    /**
+ * @summary Publish artwork for an agent's Agentic ID to 0G Storage
+ */
+export const useUploadAgentImage = <TError = ErrorType<NotFoundResponse | ValidationErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadAgentImage>>, TError,{agentId: string;data: BodyType<UploadImageRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadAgentImage>>,
+        TError,
+        {agentId: string;data: BodyType<UploadImageRequest>},
+        TContext
+      > => {
+      return useMutation(getUploadAgentImageMutationOptions(options));
     }
 
 export const getGetMintIntentUrl = (agentId: string,) => {

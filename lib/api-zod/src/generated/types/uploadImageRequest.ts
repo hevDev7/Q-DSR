@@ -11,11 +11,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateAgentRequest {
-  name: string;
-  family: string;
-  owner: string;
-  periodsPerYear?: number;
-  /** Shown on the Agentic ID once minted. */
-  description?: string;
+export interface UploadImageRequest {
+  /** An image MIME type, e.g. image/png. */
+  contentType: string;
+  dataBase64: string;
+  filename?: string;
 }

@@ -216,12 +216,41 @@ owner check with `registry.isCertified(agentId)`.
 
 | Contract | Address |
 |---|---|
-| `QDSRRegistry` | [`0x7c62a9035F00448116A1D30a05E23FE42200E436`](https://chainscan-galileo.0g.ai/address/0x7c62a9035F00448116A1D30a05E23FE42200E436#code) |
-| `AgenticID` | [`0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d`](https://chainscan-galileo.0g.ai/address/0x5dfD3d474798028d28dbB5f3CaC422af33EA5C3d#code) |
+| `QDSRRegistry` | [`0xaf239cCe0eD261D8B8A097C663fA8C04814c2797`](https://chainscan-galileo.0g.ai/address/0xaf239cCe0eD261D8B8A097C663fA8C04814c2797#code) |
+| `AgenticID` | [`0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc`](https://chainscan-galileo.0g.ai/address/0x6f4276932f41Abb8098BbfeB02c1C7B862286bBc#code) |
 
-Source is verified — the `#code` tab shows Solidity, not bytecode. Four verdicts
-are anchored there, and one Agentic ID has been minted by a wallet that is not
-this server's.
+Source is verified — the `#code` tab shows Solidity, not bytecode.
+
+**Both 0G components are live.** Verdicts and Agentic IDs go to 0G Chain; evidence
+bundles and token artwork go to 0G Storage, where the root hash in a verdict
+resolves to bytes anyone can fetch. That is what turns "you can re-run this" from
+a claim into an instruction.
+
+### What an Agentic ID carries
+
+`tokenURI` is built in the contract, so the certification numbers travel with the
+token rather than living behind a URL someone has to keep serving:
+
+```json
+{
+  "name": "Cinder Delta #1",
+  "description": "Market-neutral basis strategy on ETH perpetuals…",
+  "image": "https://indexer-storage-testnet-turbo.0g.ai/file?root=0x50ecc67a…",
+  "external_url": "0g://storage/0x2f20038b…",
+  "attributes": [
+    { "trait_type": "Verdict", "value": "Certified" },
+    { "trait_type": "Deflated Sharpe Ratio", "value": "0.9999" },
+    { "trait_type": "Probability of Backtest Overfitting", "value": "0.0000" },
+    { "trait_type": "Configurations tested", "value": 60 },
+    { "trait_type": "Observations", "value": 1512 }
+  ]
+}
+```
+
+The metrics are read live from the registry, not copied at mint time — a token
+whose agent later fails re-verification stops claiming to be certified. Artwork is
+optional: with none supplied the contract draws an SVG from the agent's own DSR
+and PBO, so a token always renders.
 
 ### Deploying
 

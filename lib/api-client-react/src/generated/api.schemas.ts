@@ -63,6 +63,8 @@ export interface CreateAgentRequest {
   family: string;
   owner: string;
   periodsPerYear?: number;
+  /** Shown on the Agentic ID once minted. */
+  description?: string;
 }
 
 /**
@@ -89,6 +91,8 @@ export interface Agent {
   periodsPerYear: number;
   status: AgentStatus;
   accent: string;
+  description?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
   latestRunId?: string;
@@ -235,7 +239,43 @@ export interface VerificationRequest {
   cscvSplits?: number;
 }
 
+export interface UploadImageRequest {
+  /** An image MIME type, e.g. image/png. */
+  contentType: string;
+  dataBase64: string;
+  filename?: string;
+}
+
+export type UploadImageResultStorageMode = typeof UploadImageResultStorageMode[keyof typeof UploadImageResultStorageMode];
+
+
+export const UploadImageResultStorageMode = {
+  live: 'live',
+  local: 'local',
+} as const;
+
+export interface UploadImageResult {
+  /** 0G Storage merkle root. */
+  root: string;
+  /** Gateway URL. Absent when storage is running locally. */
+  url?: string;
+  bytes: number;
+  storageMode: UploadImageResultStorageMode;
+}
+
+/**
+ * The struct AgenticID.mint expects.
+ */
+export interface AgentMetadata {
+  name: string;
+  description: string;
+  /** Empty makes the contract generate an SVG from the agent's metrics. */
+  image: string;
+  evidenceURI: string;
+}
+
 export interface MintIntent {
+  metadata?: AgentMetadata;
   ready: boolean;
   /** Why a mint would fail right now. Absent when ready. */
   blockedReason?: string;

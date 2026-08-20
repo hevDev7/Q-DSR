@@ -40,6 +40,8 @@ export const ListAgentsResponseItem = zod.object({
   "periodsPerYear": zod.number(),
   "status": zod.enum(['unverified', 'verifying', 'certified', 'insignificant', 'failed']),
   "accent": zod.string(),
+  "description": zod.string().optional(),
+  "imageUrl": zod.string().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
@@ -65,7 +67,8 @@ export const CreateAgentBody = zod.object({
   "name": zod.string(),
   "family": zod.string(),
   "owner": zod.string(),
-  "periodsPerYear": zod.number().optional()
+  "periodsPerYear": zod.number().optional(),
+  "description": zod.string().optional().describe('Shown on the Agentic ID once minted.')
 })
 
 export const CreateAgentResponse = zod.object({
@@ -77,6 +80,8 @@ export const CreateAgentResponse = zod.object({
   "periodsPerYear": zod.number(),
   "status": zod.enum(['unverified', 'verifying', 'certified', 'insignificant', 'failed']),
   "accent": zod.string(),
+  "description": zod.string().optional(),
+  "imageUrl": zod.string().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
@@ -110,6 +115,8 @@ export const GetAgentResponse = zod.object({
   "periodsPerYear": zod.number(),
   "status": zod.enum(['unverified', 'verifying', 'certified', 'insignificant', 'failed']),
   "accent": zod.string(),
+  "description": zod.string().optional(),
+  "imageUrl": zod.string().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "latestRunId": zod.string().optional(),
@@ -287,6 +294,33 @@ export const StartVerificationResponse = zod.object({
 
 
 /**
+ * The image is uploaded to 0G Storage and referenced from the token's
+ * on-chain metadata by its gateway URL, so a wallet or explorer can render it
+ * without this server being involved.
+ *
+ * Optional. With no image the contract draws an SVG from the agent's own
+ * certification numbers, so a token always renders.
+ * @summary Publish artwork for an agent's Agentic ID to 0G Storage
+ */
+export const UploadAgentImageParams = zod.object({
+  "agentId": zod.coerce.string()
+})
+
+export const UploadAgentImageBody = zod.object({
+  "contentType": zod.string().describe('An image MIME type, e.g. image\/png.'),
+  "dataBase64": zod.string(),
+  "filename": zod.string().optional()
+})
+
+export const UploadAgentImageResponse = zod.object({
+  "root": zod.string().describe('0G Storage merkle root.'),
+  "url": zod.string().optional().describe('Gateway URL. Absent when storage is running locally.'),
+  "bytes": zod.number(),
+  "storageMode": zod.enum(['live', 'local'])
+})
+
+
+/**
  * Minting is performed by the agent owner's own wallet, not by this server,
  * so the server's job is to hand over the exact arguments and to say plainly
  * whether the attempt would succeed.
@@ -301,6 +335,12 @@ export const GetMintIntentParams = zod.object({
 })
 
 export const GetMintIntentResponse = zod.object({
+  "metadata": zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "image": zod.string().describe('Empty makes the contract generate an SVG from the agent\'s metrics.'),
+  "evidenceURI": zod.string()
+}).optional().describe('The struct AgenticID.mint expects.'),
   "ready": zod.boolean(),
   "blockedReason": zod.string().optional().describe('Why a mint would fail right now. Absent when ready.'),
   "verdict": zod.enum(['certified', 'insignificant']).optional(),

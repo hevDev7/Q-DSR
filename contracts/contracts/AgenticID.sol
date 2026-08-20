@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import {AgenticIdMetadata} from "./AgenticIdMetadata.sol";
 import {IERC7857} from "./IERC7857.sol";
 import {IOracle, IQDSRRegistry} from "./IQDSROracle.sol";
 
@@ -24,6 +25,21 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     // ---------------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------------
+
+    /**
+     * @notice What the token presents to a wallet or an explorer.
+     * @dev `image` is an http(s) URL, in practice served from 0G Storage. Leaving
+     *      it empty is supported and makes `tokenURI` generate an SVG from the
+     *      agent's own certification numbers, so a token always renders.
+     * @dev `evidenceURI` is deliberately not encrypted. The evidence is public
+     *      precisely so a stranger can re-run it — that is the protocol's claim.
+     */
+    struct AgentMetadata {
+        string name;
+        string description;
+        string image;
+        string evidenceURI;
+    }
 
     struct AgentRecord {
         /// @dev Stable agent identity — the key the registry holds verdicts under.
@@ -46,7 +62,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     uint256 private _nextTokenId = 1;
 
     mapping(uint256 => AgentRecord) private _records;
-    mapping(uint256 => string) private _encryptedURIs;
+    mapping(uint256 => AgentMetadata) private _metadata;
     /// @dev One Agentic ID per certified agent — identity is not fungible.
     mapping(bytes32 => uint256) public tokenIdOfAgent;
     /// @dev tokenId => executor => permissions blob.
@@ -61,7 +77,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         bytes32 indexed agentId,
         address indexed to,
         bytes32 metadataHash,
-        string metadataURI
+        string evidenceURI
     );
     event MintBlocked(bytes32 indexed agentId, address indexed caller, string reason);
     event SealedTransfer(uint256 indexed tokenId, address indexed from, address indexed to);
@@ -121,11 +137,13 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
     function mint(
         address to,
         bytes32 agentId,
-        string calldata metadataURI,
+        AgentMetadata calldata metadata,
         bytes32 metadataHash
     ) external nonReentrant returns (uint256 tokenId) {
         if (to == address(0)) revert ZeroAddress();
-        if (metadataHash == bytes32(0) || bytes(metadataURI).length == 0) revert EmptyMetadata();
+        if (metadataHash == bytes32(0) || bytes(metadata.evidenceURI).length == 0) {
+            revert EmptyMetadata();
+        }
 
         uint256 existing = tokenIdOfAgent[agentId];
         if (existing != 0) revert AgentAlreadyMinted(agentId, existing);
@@ -146,10 +164,10 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
             verdictIndex: 0,
             mintedAt: uint64(block.timestamp)
         });
-        _encryptedURIs[tokenId] = metadataURI;
+        _metadata[tokenId] = metadata;
         tokenIdOfAgent[agentId] = tokenId;
 
-        emit AgenticIdMinted(tokenId, agentId, to, metadataHash, metadataURI);
+        emit AgenticIdMinted(tokenId, agentId, to, metadataHash, metadata.evidenceURI);
     }
 
     // ---------------------------------------------------------------------
@@ -206,7 +224,7 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
             verdictIndex: source.verdictIndex,
             mintedAt: uint64(block.timestamp)
         });
-        _encryptedURIs[newTokenId] = _encryptedURIs[tokenId];
+        _metadata[newTokenId] = _metadata[tokenId];
 
         emit Cloned(tokenId, newTokenId, to);
     }
@@ -234,9 +252,40 @@ contract AgenticID is ERC721, ReentrancyGuard, IERC7857 {
         return _records[tokenId];
     }
 
-    function encryptedURI(uint256 tokenId) external view returns (string memory) {
+    function metadataOf(uint256 tokenId) external view returns (AgentMetadata memory) {
         if (_ownerOf(tokenId) == address(0)) revert UnknownToken(tokenId);
-        return _encryptedURIs[tokenId];
+        return _metadata[tokenId];
+    }
+
+    /**
+     * @notice ERC-721 metadata, built on chain.
+     * @dev The certification numbers are read live from the registry rather than
+     *      copied at mint time, so a token that later loses its standing says so
+     *      instead of showing a verdict that no longer holds.
+     */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+
+        AgentRecord memory record = _records[tokenId];
+        AgentMetadata memory metadata = _metadata[tokenId];
+        (uint32 dsrBps, uint32 pboBps, uint32 trials, uint32 observations) =
+            registry.verdictMetrics(record.agentId);
+
+        return
+            AgenticIdMetadata.tokenURI(
+                AgenticIdMetadata.View({
+                    name: metadata.name,
+                    description: metadata.description,
+                    image: metadata.image,
+                    evidenceURI: metadata.evidenceURI,
+                    dsrBps: dsrBps,
+                    pboBps: pboBps,
+                    trials: trials,
+                    observations: observations,
+                    certified: registry.isCertified(record.agentId),
+                    tokenId: tokenId
+                })
+            );
     }
 
     function authorisationOf(uint256 tokenId, address executor) external view returns (bytes memory) {

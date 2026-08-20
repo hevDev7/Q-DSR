@@ -21,8 +21,13 @@ import { GhostButton, PrimaryButton } from './primitives';
  *  The contract checks a zero recipient and empty metadata before it checks
  *  certification, and hitting those guards would hide the answer we came for. */
 const PROBE_RECIPIENT = '0x000000000000000000000000000000000000dEaD';
-const PROBE_URI = '0g://storage/probe';
 const PROBE_HASH = `0x${'11'.repeat(32)}`;
+const PROBE_METADATA = {
+  name: 'probe',
+  description: 'gate probe',
+  image: '',
+  evidenceURI: '0g://storage/probe',
+};
 
 interface MintedToken {
   tokenId: string;
@@ -114,7 +119,7 @@ export function MintPanel({ agentId }: { agentId: string }) {
       await contract.mint!.staticCall(
         wallet.address ?? PROBE_RECIPIENT,
         current.agentIdHash,
-        current.metadataURI ?? PROBE_URI,
+        current.metadata ?? PROBE_METADATA,
         current.metadataHash ?? PROBE_HASH,
       );
       setGate({ allowed: true, detail: 'The contract would accept this mint.' });
@@ -126,7 +131,7 @@ export function MintPanel({ agentId }: { agentId: string }) {
   };
 
   const mint = async (current: MintIntent): Promise<void> => {
-    if (!current.agenticIdAddress || !current.metadataURI || !current.metadataHash) return;
+    if (!current.agenticIdAddress || !current.metadata || !current.metadataHash) return;
     setError(undefined);
     setMinting(true);
     try {
@@ -135,7 +140,7 @@ export function MintPanel({ agentId }: { agentId: string }) {
       const tx = await contract.mint!(
         await signer.getAddress(),
         current.agentIdHash,
-        current.metadataURI,
+        current.metadata,
         current.metadataHash,
       );
       setTxHash(tx.hash);
@@ -205,7 +210,8 @@ export function MintPanel({ agentId }: { agentId: string }) {
               {[
                 ['network', intent.networkName],
                 ['contract', shortHash(intent.agenticIdAddress, 10, 6)],
-                ['metadata', intent.metadataURI ?? '—'],
+                ['evidence', intent.metadata?.evidenceURI ?? '—'],
+                ['artwork', intent.metadata?.image ? '0G Storage' : 'generated on chain'],
                 ['metadataHash', shortHash(intent.metadataHash, 12, 8)],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3">

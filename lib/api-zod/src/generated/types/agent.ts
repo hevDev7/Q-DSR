@@ -23,6 +23,8 @@ export interface Agent {
   periodsPerYear: number;
   status: AgentStatus;
   accent: string;
+  description?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
   latestRunId?: string;

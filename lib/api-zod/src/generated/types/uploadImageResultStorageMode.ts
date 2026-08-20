@@ -11,11 +11,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateAgentRequest {
-  name: string;
-  family: string;
-  owner: string;
-  periodsPerYear?: number;
-  /** Shown on the Agentic ID once minted. */
-  description?: string;
-}
+export type UploadImageResultStorageMode = typeof UploadImageResultStorageMode[keyof typeof UploadImageResultStorageMode];
+
+
+export const UploadImageResultStorageMode = {
+  live: 'live',
+  local: 'local',
+} as const;

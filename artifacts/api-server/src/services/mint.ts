@@ -2,9 +2,19 @@ import type { ChainStatus } from '@workspace/og-chain';
 
 import type { AgentRecord, AnchorRecord, RunRecord } from '../store/index.js';
 
+/** The struct AgenticID.mint expects, assembled server side so the browser cannot get it wrong. */
+export interface AgentMetadata {
+  name: string;
+  description: string;
+  /** http(s) URL, in practice a 0G Storage gateway link. Empty makes the contract draw an SVG. */
+  image: string;
+  evidenceURI: string;
+}
+
 export interface MintIntent {
   ready: boolean;
   blockedReason?: string;
+  metadata?: AgentMetadata;
   verdict?: 'certified' | 'insignificant';
   agentIdHash: string;
   metadataURI?: string;
@@ -54,6 +64,16 @@ export function buildMintIntent(input: {
     evidenceRoot: anchor?.evidenceRoot,
     metadataURI: anchor?.evidenceRoot ? `0g://storage/${anchor.evidenceRoot}` : undefined,
     metadataHash: run?.result ? `0x${run.result.digest}` : undefined,
+    metadata: {
+      name: agent.name,
+      description:
+        agent.description ??
+        `${agent.family} — certified under the Q-DSR protocol on 0G.`,
+      // Empty is a supported value: the contract generates an SVG from the
+      // agent's own numbers, so a token renders with nothing uploaded.
+      image: agent.imageUrl ?? '',
+      evidenceURI: anchor?.evidenceRoot ? `0g://storage/${anchor.evidenceRoot}` : '',
+    },
   };
 
   if (!chain.configured || !chain.agenticIdAddress) {

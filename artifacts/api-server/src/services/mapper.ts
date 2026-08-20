@@ -90,6 +90,8 @@ export function toAgentDto(
     periodsPerYear: agent.periodsPerYear,
     status: agent.status,
     accent: agent.accent,
+    description: agent.description,
+    imageUrl: agent.imageUrl,
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
     latestRunId: agent.latestRunId,
